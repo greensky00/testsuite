@@ -7,16 +7,35 @@ CXXFLAGS = \
 CXXFLAGS += -Wall
 #CXXFLAGS += -O3
 
-BASIC_EXAMPLE = \
-	examples/basic_example.o \
+BASIC_TEST = \
+	examples/basic_test.o \
+
+RANGE_TEST = \
+	examples/range_test.o \
+
+MULTI_ARGS_TEST = \
+	examples/multi_args_test.o \
 
 PROGRAMS = \
-	examples/basic_example \
+	examples/basic_test \
+	examples/range_test \
+	examples/multi_args_test \
 
 all: $(PROGRAMS)
 
-examples/basic_example: $(BASIC_EXAMPLE)
+examples/basic_test: $(BASIC_TEST)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
+examples/range_test: $(RANGE_TEST)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
+examples/multi_args_test: $(MULTI_ARGS_TEST)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
+test:
+	examples/basic_test
+	examples/range_test
+	examples/multi_args_test
 
 clean:
 	rm -rf $(PROGRAMS) ./*.o ./*.so ./*/*.o ./*/*.so

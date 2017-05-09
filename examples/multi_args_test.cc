@@ -2,43 +2,6 @@
 
 #include "test_common.h"
 
-int basic_test_example()
-{
-    int count = 0;
-    int i = 0;
-
-    for (i=0; i<10; ++i) {
-        count += i;
-    }
-
-    int count_chk = 0;
-    for (i=9; i>=0; --i) {
-        count_chk += i;
-    }
-
-    CHK_EQ(count_chk, count);
-    CHK_NOT(count_chk != count);
-    CHK_OK(count_chk == count);
-
-    void *ptr = nullptr;
-    CHK_NULL(ptr);
-
-    char a;
-    ptr = &a;
-    CHK_NONNULL(ptr);
-
-    return 0;
-}
-
-int range_test_example(size_t arg) {
-    CHK_SM(arg, 5);
-    CHK_SMEQ(arg, 4);
-    CHK_GT(arg, 0);
-    CHK_GTEQ(arg, 1);
-    return 0;
-}
-
-
 DEFINE_PARAMS_2(my_dual_args,
                 bool, arg_bool, ({false, true}),
                 int,  arg_int,  ({32, 64, 128, 256}) );
@@ -72,12 +35,6 @@ int triple_args_test(PARAM_BASE) {
 
 int main() {
     TestSuite test;
-
-    test.doTest("basic test example", basic_test_example);
-
-    test.doTest("range test example",
-                range_test_example,
-                TestRange<size_t>(1, 4, 1));
 
     SET_PARAMS(my_dual_args);
     test.doTest("dual arguments test example",

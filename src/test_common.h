@@ -547,60 +547,58 @@ void TestSuite::doTest(std::string test_name,
     }
 }
 
-#define DEFINE_PARAMS_2(name, \
-                        type1, param1, range1, \
-                        type2, param2, range2) \
-    class name ## _class : public TestArgsBase { \
-    public: \
-        name ## _class() { \
-            args = std::make_tuple(&param1, &param2); \
-            ranges = std::make_tuple( \
-                         TestRange<type1>range1, \
-                         TestRange<type2>range2 ); \
-        } \
-        std::string toString() { \
-            std::stringstream ss; \
-            ss << param1 << ", " << param2; \
-            return ss.str(); \
-        } \
-        TEST_ARGS_CONTENTS() \
-        type1 param1; \
-        type2 param2; \
-    private: \
-        std::tuple<type1*, type2*> args; \
+#define DEFINE_PARAMS_2(name,                                  \
+                        type1, param1, range1,                 \
+                        type2, param2, range2)                 \
+    class name ## _class : public TestArgsBase {               \
+    public:                                                    \
+        name ## _class() {                                     \
+            args = std::make_tuple(&param1, &param2);          \
+            ranges = std::make_tuple(                          \
+                         TestRange<type1>range1,               \
+                         TestRange<type2>range2 );             \
+        }                                                      \
+        std::string toString() {                               \
+            std::stringstream ss;                              \
+            ss << param1 << ", " << param2;                    \
+            return ss.str();                                   \
+        }                                                      \
+        TEST_ARGS_CONTENTS()                                   \
+        type1 param1;                                          \
+        type2 param2;                                          \
+    private:                                                   \
+        std::tuple<type1*, type2*> args;                       \
         std::tuple<TestRange<type1>, TestRange<type2>> ranges; \
-    }; \
-    static TestArgsWrapper name(new name ## _class())
+    };
 
-#define DEFINE_PARAMS_3(name, \
-                        type1, param1, range1, \
-                        type2, param2, range2, \
-                        type3, param3, range3) \
-    class name ## _class : public TestArgsBase { \
-    public: \
-        name ## _class() { \
+#define DEFINE_PARAMS_3(name,                                  \
+                        type1, param1, range1,                 \
+                        type2, param2, range2,                 \
+                        type3, param3, range3)                 \
+    class name ## _class : public TestArgsBase {               \
+    public:                                                    \
+        name ## _class() {                                     \
             args = std::make_tuple(&param1, &param2, &param3); \
-            ranges = std::make_tuple( \
-                         TestRange<type1>range1, \
-                         TestRange<type2>range2, \
-                         TestRange<type3>range3 ); \
-        } \
-        std::string toString() { \
-            std::stringstream ss; \
-            ss << param1 << ", " << param2 << ", " << param3; \
-            return ss.str(); \
-        } \
-        TEST_ARGS_CONTENTS() \
-        type1 param1; \
-        type2 param2; \
-        type3 param3; \
-    private: \
-        std::tuple<type1*, type2*, type3*> args; \
-        std::tuple<TestRange<type1>, \
-                   TestRange<type2>, \
-                   TestRange<type3>> ranges; \
-    }; \
-    static TestArgsWrapper name(new name ## _class())
+            ranges = std::make_tuple(                          \
+                         TestRange<type1>range1,               \
+                         TestRange<type2>range2,               \
+                         TestRange<type3>range3 );             \
+        }                                                      \
+        std::string toString() {                               \
+            std::stringstream ss;                              \
+            ss << param1 << ", " << param2 << ", " << param3;  \
+            return ss.str();                                   \
+        }                                                      \
+        TEST_ARGS_CONTENTS()                                   \
+        type1 param1;                                          \
+        type2 param2;                                          \
+        type3 param3;                                          \
+    private:                                                   \
+        std::tuple<type1*, type2*, type3*> args;               \
+        std::tuple<TestRange<type1>,                           \
+                   TestRange<type2>,                           \
+                   TestRange<type3>> ranges;                   \
+    };
 
 #define SET_PARAMS(name) \
     TestArgsWrapper name(new name ## _class())
