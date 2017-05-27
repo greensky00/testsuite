@@ -196,22 +196,22 @@ using test_func_args = std::function<int(TestArgsBase*)>;
 class TestSuite;
 class TestArgsBase {
 public:
-    virtual ~TestArgsBase();
-    void setCallback(std::string test_name,
+    inline virtual ~TestArgsBase();
+    inline void setCallback(std::string test_name,
                      test_func_args func,
                      TestSuite* test_instance);
-    void testAll();
-    virtual void setParam(size_t param_no, size_t param_idx) = 0;
-    virtual size_t getNumSteps(size_t param_no) = 0;
-    virtual size_t getNumParams() = 0;
-    virtual std::string toString() = 0;
+    inline void testAll();
+    inline virtual void setParam(size_t param_no, size_t param_idx) = 0;
+    inline virtual size_t getNumSteps(size_t param_no) = 0;
+    inline virtual size_t getNumParams() = 0;
+    inline virtual std::string toString() = 0;
 
 private:
-    void testAllInternal(size_t depth);
+    inline void testAllInternal(size_t depth);
 
     std::string testName;
     test_func_args testFunction;
-    TestSuite *testInstance;
+    TestSuite* testInstance;
 };
 
 class TestArgsWrapper {
@@ -297,39 +297,40 @@ private:
 
 class TestSuite {
 public:
-    TestSuite();
-    ~TestSuite();
+    inline TestSuite();
+    inline ~TestSuite();
 
-    static std::string getTestFileName(std::string prefix);
-    static void clearTestFile(std::string prefix);
+    inline static std::string getTestFileName(std::string prefix);
+    inline static void clearTestFile(std::string prefix);
 
-    void doTest(std::string test_name,
-                test_func func);
+    inline void doTest(std::string test_name,
+                       test_func func);
 
-    void doTest(std::string test_name,
-                test_func_args func,
-                TestArgsWrapper& args_wrapper);
+    inline void doTest(std::string test_name,
+                       test_func_args func,
+                       TestArgsWrapper& args_wrapper);
 
     template<typename T, typename F>
-    void doTest(std::string test_name,
-                F func,
-                TestRange<T> range);
+    inline void doTest(std::string test_name,
+                       F func,
+                       TestRange<T> range);
 
-    void doTestCB(std::string test_name,
-                  test_func_args func,
-                  TestArgsBase* args);
+    inline void doTestCB(std::string test_name,
+                         test_func_args func,
+                         TestArgsBase* args);
 
 private:
-    void printTestReady(std::string& test_name);
-    void printTestResult(std::string& test_name,
-                         int result,
-                         double elased_time);
+    inline void printTestReady(std::string& test_name);
+    inline void printTestResult(std::string& test_name,
+                                int result,
+                                double elased_time);
 
     size_t cntPass;
     size_t cntFail;
 };
 
 
+// ===== Functor =====
 
 struct TestArgsSetParamFunctor
 {
@@ -409,6 +410,9 @@ TestArgsGetStepsScan(int index,
     size_t getNumParams() { return std::tuple_size<decltype(args)>::value; }
 
 
+
+// ===== TestArgsBase =====
+
 TestArgsBase::~TestArgsBase() { }
 
 void TestArgsBase::setCallback(std::string test_name,
@@ -421,6 +425,20 @@ void TestArgsBase::setCallback(std::string test_name,
 
 void TestArgsBase::testAll() {
     testAllInternal(0);
+}
+
+void TestArgsBase::setParam(size_t param_no, size_t param_idx) {
+    (void)param_no;
+    (void)param_idx;
+}
+
+size_t TestArgsBase::getNumSteps(size_t param_no) {
+    (void)param_no;
+    return 0;
+}
+
+size_t TestArgsBase::getNumParams() {
+    return 0;
 }
 
 std::string TestArgsBase::toString() {
@@ -450,11 +468,10 @@ void TestArgsBase::testAllInternal(size_t depth) {
 }
 
 
-TestSuite::TestSuite() :
-    cntPass(0),
-    cntFail(0)
-{
-}
+
+// ===== TestSuite =====
+
+TestSuite::TestSuite() : cntPass(0), cntFail(0) {}
 
 static std::string usToString(uint64_t us) {
     std::stringstream ss;
@@ -592,6 +609,10 @@ void TestSuite::doTest(std::string test_name,
     }
 }
 
+
+
+// ===== Parameter macros =====
+
 #define DEFINE_PARAMS_2(name,                                  \
                         type1, param1, range1,                 \
                         type2, param2, range2)                 \
@@ -652,3 +673,4 @@ void TestSuite::doTest(std::string test_name,
     name ## _class* name = static_cast<name ## _class*>(TEST_args_base__)
 
 #define PARAM_BASE TestArgsBase* TEST_args_base__
+
