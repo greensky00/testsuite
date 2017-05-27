@@ -4,7 +4,7 @@
  *
  * https://github.com/greensky00
  *
- * Last modification: May 12, 2017.
+ * Last modification: May 27, 2017.
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation

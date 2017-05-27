@@ -3,8 +3,8 @@
 #include "test_common.h"
 
 int range_test_example(size_t arg) {
-    CHK_SM(arg, 5);
-    CHK_SMEQ(arg, 4);
+    CHK_SM(arg, 8);
+    CHK_SMEQ(arg, 7);
     CHK_GT(arg, 0);
     CHK_GTEQ(arg, 1);
     return 0;
@@ -15,7 +15,9 @@ int main() {
 
     test.doTest("range test example",
                 range_test_example,
-                TestRange<size_t>(1, 4, 1));
+                // linearly increasing size_t value,
+                // where 1 <= value <= 8, step 2: 1, 3, 5, 7.
+                TestRange<size_t>(1, 8, 2));
 
     return 0;
 }

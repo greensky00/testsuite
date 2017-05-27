@@ -2,8 +2,12 @@
 
 #include "test_common.h"
 
+// Dual-parameters example: {bool, int}.
+
 DEFINE_PARAMS_2(my_dual_args,
+                // bool array 'arg_bool' {false, true}
                 bool, arg_bool, ({false, true}),
+                // int array 'arg_int' {32, 64, 128, 256}
                 int,  arg_int,  ({32, 64, 128, 256}) );
 
 int dual_args_test(PARAM_BASE) {
@@ -17,10 +21,17 @@ int dual_args_test(PARAM_BASE) {
 }
 
 
+// Triple-parameters example: {uint16_t, uint32_t, uint64_t}.
+
 DEFINE_PARAMS_3(my_triple_args,
+                // uint16_t array 'array_val' {1, 2}
                 uint16_t, array_val, ({1, 2}),
+                // linearly increasing uint32_t value 'linear',
+                // where 1 <= 'linear' <= 5, step 1: 1, 2, 3, 4, 5.
                 uint32_t, linear,    (1, 5, 1),
-                uint64_t, exp,       (2, 16, 2, StepType::EXPONENTIAL) );
+                // exponentially increasing uint64_t value 'exp',
+                // where 2 <= 'exp' <= 20, multiplying by 2: 2, 4, 8, 16.
+                uint64_t, exp,       (2, 20, 2, StepType::EXPONENTIAL) );
 
 int triple_args_test(PARAM_BASE) {
     GET_PARAMS(my_triple_args);
