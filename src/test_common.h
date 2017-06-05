@@ -298,6 +298,7 @@ private:
 class TestSuite {
 public:
     inline TestSuite();
+    inline TestSuite(int argc, char **argv);
     inline ~TestSuite();
 
     inline static std::string getTestFileName(std::string prefix);
@@ -320,6 +321,8 @@ public:
                          TestArgsBase* args);
 
 private:
+    inline bool matchFilter(std::string test_name);
+
     inline void printTestReady(std::string& test_name);
     inline void printTestResult(std::string& test_name,
                                 int result,
@@ -327,13 +330,13 @@ private:
 
     size_t cntPass;
     size_t cntFail;
+    std::string filter;
 };
 
 
 // ===== Functor =====
 
-struct TestArgsSetParamFunctor
-{
+struct TestArgsSetParamFunctor {
     template<typename T>
     void operator()(T* t, TestRange<T>& r, size_t param_idx) const {
         *t = r.getEntry(param_idx);
@@ -358,13 +361,11 @@ TestArgsSetParamScan(int index,
                      std::tuple<Tp*...>& t,
                      std::tuple<TestRange<Tp>...>& r,
                      FuncT f,
-                     size_t param_idx)
-{
+                     size_t param_idx) {
     if (index == 0) f(std::get<I>(t), std::get<I>(r), param_idx);
     TestArgsSetParamScan<I + 1, FuncT, Tp...>(index-1, t, r, f, param_idx);
 }
-struct TestArgsGetNumStepsFunctor
-{
+struct TestArgsGetNumStepsFunctor {
     template<typename T>
     void operator()(T* t, TestRange<T>& r, size_t& steps_ret) const {
         (void)t;
@@ -390,8 +391,7 @@ TestArgsGetStepsScan(int index,
                      std::tuple<Tp*...>& t,
                      std::tuple<TestRange<Tp>...>& r,
                      FuncT f,
-                     size_t& steps_ret)
-{
+                     size_t& steps_ret) {
     if (index == 0) f(std::get<I>(t), std::get<I>(r), steps_ret);
     TestArgsGetStepsScan<I + 1, FuncT, Tp...>(index-1, t, r, f, steps_ret);
 }
@@ -473,6 +473,14 @@ void TestArgsBase::testAllInternal(size_t depth) {
 
 TestSuite::TestSuite() : cntPass(0), cntFail(0) {}
 
+TestSuite::TestSuite(int argc, char **argv)
+    : cntPass(0),
+      cntFail(0) {
+    if (argc >= 2) {
+        filter = argv[1];
+    }
+}
+
 static std::string usToString(uint64_t us) {
     std::stringstream ss;
     if (us < 1000) {
@@ -494,8 +502,7 @@ static std::string usToString(uint64_t us) {
     return ss.str();
 }
 
-TestSuite::~TestSuite()
-{
+TestSuite::~TestSuite() {
     printf(_CL_GREEN("%zu") " tests passed", cntPass);
     if (cntFail) {
         printf(", " _CL_RED("%zu") " tests failed", cntFail);
@@ -503,8 +510,7 @@ TestSuite::~TestSuite()
     printf(" out of " _CL_CYAN("%zu") "\n", cntPass+cntFail);
 }
 
-std::string TestSuite::getTestFileName(std::string prefix)
-{
+std::string TestSuite::getTestFileName(std::string prefix) {
     std::string ret = prefix;
     int rnd_num = std::rand();
     ret += "_";
@@ -512,8 +518,7 @@ std::string TestSuite::getTestFileName(std::string prefix)
     return ret;
 }
 
-void TestSuite::clearTestFile(std::string prefix)
-{
+void TestSuite::clearTestFile(std::string prefix) {
     int r;
     (void)r;
     std::string command = "rm -f ";
@@ -550,9 +555,20 @@ void TestSuite::printTestResult(std::string& test_name,
     }
 }
 
+bool TestSuite::matchFilter(std::string test_name) {
+    if (!filter.empty() &&
+        test_name.find(filter) == std::string::npos) {
+        // Doesn't match with the given filter.
+        return false;
+    }
+    return true;
+}
+
 void TestSuite::doTest(std::string test_name,
                        test_func func)
 {
+    if (!matchFilter(test_name)) return;
+
     printTestReady(test_name);
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now();
@@ -564,8 +580,9 @@ void TestSuite::doTest(std::string test_name,
 
 void TestSuite::doTest(std::string test_name,
                        test_func_args func,
-                       TestArgsWrapper& args_wrapper)
-{
+                       TestArgsWrapper& args_wrapper) {
+    if (!matchFilter(test_name)) return;
+
     TestArgsBase* args = args_wrapper.getArgs();
     args->setCallback(test_name, func, this);
     args->testAll();
@@ -573,8 +590,7 @@ void TestSuite::doTest(std::string test_name,
 
 void TestSuite::doTestCB(std::string test_name,
                          test_func_args func,
-                         TestArgsBase *args)
-{
+                         TestArgsBase* args) {
     printTestReady(test_name);
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now();
@@ -587,8 +603,9 @@ void TestSuite::doTestCB(std::string test_name,
 template<typename T, typename F>
 void TestSuite::doTest(std::string test_name,
                        F func,
-                       TestRange<T> range)
-{
+                       TestRange<T> range) {
+    if (!matchFilter(test_name)) return;
+
     size_t n = range.getSteps();
     size_t i;
 

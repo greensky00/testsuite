@@ -16,6 +16,9 @@ RANGE_TEST = \
 MULTI_ARGS_TEST = \
 	examples/multi_args_test.o \
 
+CLI_ARGS_TEST = \
+	examples/cli_args_test.o \
+
 VERIFY_MULTI_INCLUDE = \
 	examples/verify_multi_include.o \
 	examples/dummy.o \
@@ -24,6 +27,7 @@ PROGRAMS = \
 	examples/basic_test \
 	examples/range_test \
 	examples/multi_args_test \
+	examples/cli_args_test \
 	examples/verify_multi_include \
 
 all: $(PROGRAMS)
@@ -37,6 +41,9 @@ examples/range_test: $(RANGE_TEST)
 examples/multi_args_test: $(MULTI_ARGS_TEST)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
+examples/cli_args_test: $(CLI_ARGS_TEST)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
 examples/verify_multi_include: $(VERIFY_MULTI_INCLUDE)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
@@ -44,6 +51,7 @@ test:
 	examples/basic_test
 	examples/range_test
 	examples/multi_args_test
+	examples/cli_args_test
 
 clean:
 	rm -rf $(PROGRAMS) ./*.o ./*.so ./*/*.o ./*/*.so
