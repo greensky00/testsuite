@@ -45,7 +45,8 @@
 #define _CLM_B_GREEN   "\033[1;32m"
 #define _CLM_RED       "\033[31m"
 #define _CLM_B_RED     "\033[1;31m"
-#define _CLM_BLUE      "\033[34m"
+#define _CLM_BROWN     "\033[33m"
+#define _CLM_BLUE      "\033[34m"
 #define _CLM_B_BLUE    "\033[1;34m"
 #define _CLM_MAGENTA   "\033[35m"
 #define _CLM_B_MAGENTA "\033[1;35m"
@@ -55,6 +56,7 @@
 #define _CL_GREEN(str)     _CLM_GREEN   str _CLM_END
 #define _CL_RED(str)       _CLM_RED     str _CLM_END
 #define _CL_MAGENTA(str)   _CLM_MAGENTA str _CLM_END
+#define _CL_BROWN(str)     _CLM_BROWN   str _CLM_END
 #define _CL_B_MAGENTA(str) _CLM_MAGENTA str _CLM_END
 #define _CL_CYAN(str)      _CLM_CYAN    str _CLM_END
 
@@ -519,7 +521,8 @@ TestSuite::~TestSuite() {
     if (cntFail) {
         printf(", " _CL_RED("%zu") " tests failed", cntFail);
     }
-    printf(" out of " _CL_CYAN("%zu") " (%s)\n", cntPass+cntFail, time_str.c_str());
+    printf(" out of " _CL_CYAN("%zu") " (" _CL_BROWN("%s") ")\n",
+           cntPass+cntFail, time_str.c_str());
 }
 
 std::string TestSuite::getTestFileName(std::string prefix) {
@@ -554,7 +557,7 @@ void TestSuite::reportTestResult(std::string& test_name,
     std::string time_str = usToString(elapsed.count() * 1000000);
 
     if (result < 0) {
-        printf("[ " _CL_RED("FAIL") " ] %s (%s)\n",
+        printf("[ " _CL_RED("FAIL") " ] %s (" _CL_BROWN("%s") ")\n",
                test_name.c_str(),
                time_str.c_str());
         cntFail++;
@@ -564,7 +567,7 @@ void TestSuite::reportTestResult(std::string& test_name,
         // Clear current line
         printf("\r");
         // Overwrite
-        printf("[ " _CL_GREEN("PASS") " ] %s (%s)\n",
+        printf("[ " _CL_GREEN("PASS") " ] %s (" _CL_BROWN("%s") ")\n",
                test_name.c_str(),
                time_str.c_str());
         cntPass++;
