@@ -4,7 +4,7 @@
  *
  * https://github.com/greensky00
  *
- * Version: 0.1.10
+ * Version: 0.1.11
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -514,7 +514,7 @@ static std::string usToString(uint64_t us) {
 TestSuite::~TestSuite() {
     std::chrono::time_point<std::chrono::system_clock> cur_time =
             std::chrono::system_clock::now();;
-    std::chrono::duration<double> elapsed = cur_time - startTimeLocal;
+    std::chrono::duration<double> elapsed = cur_time - startTimeGlobal;
     std::string time_str = usToString(elapsed.count() * 1000000);
 
     printf(_CL_GREEN("%zu") " tests passed", cntPass);
