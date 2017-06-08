@@ -4,7 +4,7 @@
  *
  * https://github.com/greensky00
  *
- * Version: 0.1.11
+ * Version: 0.1.12
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -41,6 +41,7 @@
 #include <tuple>
 #include <vector>
 
+#define _CLM_D_GRAY    "\033[1;30m"
 #define _CLM_GREEN     "\033[32m"
 #define _CLM_B_GREEN   "\033[1;32m"
 #define _CLM_RED       "\033[31m"
@@ -53,6 +54,7 @@
 #define _CLM_CYAN      "\033[36m"
 #define _CLM_END       "\033[0m"
 
+#define _CL_D_GRAY(str)    _CLM_D_GRAY  str _CLM_END
 #define _CL_GREEN(str)     _CLM_GREEN   str _CLM_END
 #define _CL_RED(str)       _CLM_RED     str _CLM_END
 #define _CL_MAGENTA(str)   _CLM_MAGENTA str _CLM_END
@@ -297,6 +299,14 @@ private:
     T step;
 };
 
+struct TestOptions {
+    TestOptions()
+        : printTestMessage(false)
+        {}
+
+    bool printTestMessage;
+};
+
 class TestSuite {
 public:
     inline TestSuite();
@@ -321,6 +331,8 @@ public:
     inline void doTestCB(std::string test_name,
                          test_func_args func,
                          TestArgsBase* args);
+
+    TestOptions options;
 
 private:
     inline bool matchFilter(std::string test_name);
@@ -544,13 +556,16 @@ void TestSuite::clearTestFile(std::string prefix) {
 
 void TestSuite::readyTest(std::string& test_name) {
     printf("[ " "...." " ] %s\n", test_name.c_str());
+    if (options.printTestMessage) {
+        printf(_CL_D_GRAY("   === TEST MESSAGE (BEGIN) ===\n") _CLM_D_GRAY);
+    }
     fflush(stdout);
 
     startTimeLocal = std::chrono::system_clock::now();
 }
 
 void TestSuite::reportTestResult(std::string& test_name,
-                                int result) {
+                                 int result) {
     std::chrono::time_point<std::chrono::system_clock> cur_time =
             std::chrono::system_clock::now();;
     std::chrono::duration<double> elapsed = cur_time - startTimeLocal;
@@ -562,11 +577,15 @@ void TestSuite::reportTestResult(std::string& test_name,
                time_str.c_str());
         cntFail++;
     } else {
-        // Move a line up
-        printf("\033[1A");
-        // Clear current line
-        printf("\r");
-        // Overwrite
+        if (options.printTestMessage) {
+            printf(_CL_D_GRAY("   === TEST MESSAGE (END) ===\n"));
+        } else {
+            // Move a line up.
+            printf("\033[1A");
+            // Clear current line.
+            printf("\r");
+            // And then overwrite.
+        }
         printf("[ " _CL_GREEN("PASS") " ] %s (" _CL_BROWN("%s") ")\n",
                test_name.c_str(),
                time_str.c_str());
