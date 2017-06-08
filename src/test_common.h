@@ -4,7 +4,7 @@
  *
  * https://github.com/greensky00
  *
- * Version: 0.1.12
+ * Version: 0.1.13
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -200,15 +200,29 @@ using test_func_args = std::function<int(TestArgsBase*)>;
 class TestSuite;
 class TestArgsBase {
 public:
-    inline virtual ~TestArgsBase();
-    inline void setCallback(std::string test_name,
+    virtual ~TestArgsBase() { }
+    void setCallback(std::string test_name,
                      test_func_args func,
-                     TestSuite* test_instance);
-    inline void testAll();
-    inline virtual void setParam(size_t param_no, size_t param_idx) = 0;
-    inline virtual size_t getNumSteps(size_t param_no) = 0;
-    inline virtual size_t getNumParams() = 0;
-    inline virtual std::string toString() = 0;
+                     TestSuite* test_instance) {
+        testName = test_name;
+        testFunction = func;
+        testInstance = test_instance;
+    }
+
+    void testAll() { testAllInternal(0); }
+
+    virtual void setParam(size_t param_no, size_t param_idx) {
+        (void)param_no;
+        (void)param_idx;
+    }
+
+    virtual size_t getNumSteps(size_t param_no) {
+        (void)param_no;
+        return 0;
+    }
+
+    virtual size_t getNumParams() { return 0; }
+    virtual std::string toString() { return ""; }
 
 private:
     inline void testAllInternal(size_t depth);
@@ -309,12 +323,50 @@ struct TestOptions {
 
 class TestSuite {
 public:
-    inline TestSuite();
-    inline TestSuite(int argc, char **argv);
-    inline ~TestSuite();
+    TestSuite()
+        : cntPass(0),
+          cntFail(0),
+          startTimeGlobal(std::chrono::system_clock::now()) {}
 
-    inline static std::string getTestFileName(std::string prefix);
-    inline static void clearTestFile(std::string prefix);
+    TestSuite(int argc, char **argv)
+        : cntPass(0),
+          cntFail(0),
+          startTimeGlobal(std::chrono::system_clock::now()) {
+        if (argc >= 2) {
+            filter = argv[1];
+        }
+    }
+
+    ~TestSuite() {
+        std::chrono::time_point<std::chrono::system_clock> cur_time =
+                std::chrono::system_clock::now();;
+        std::chrono::duration<double> elapsed = cur_time - startTimeGlobal;
+        std::string time_str = usToString(elapsed.count() * 1000000);
+
+        printf(_CL_GREEN("%zu") " tests passed", cntPass);
+        if (cntFail) {
+            printf(", " _CL_RED("%zu") " tests failed", cntFail);
+        }
+        printf(" out of " _CL_CYAN("%zu") " (" _CL_BROWN("%s") ")\n",
+               cntPass+cntFail, time_str.c_str());
+    }
+
+    static std::string getTestFileName(std::string prefix) {
+        std::string ret = prefix;
+        int rnd_num = std::rand();
+        ret += "_";
+        ret += std::to_string(rnd_num);
+        return ret;
+    }
+
+    static void clearTestFile(std::string prefix) {
+        int r;
+        (void)r;
+        std::string command = "rm -f ";
+        command += prefix;
+        command += "*";
+        r = system(command.c_str());
+    }
 
     inline void doTest(std::string test_name,
                        test_func func);
@@ -335,11 +387,74 @@ public:
     TestOptions options;
 
 private:
-    inline bool matchFilter(std::string test_name);
+    bool matchFilter(std::string test_name) {
+        if (!filter.empty() &&
+            test_name.find(filter) == std::string::npos) {
+            // Doesn't match with the given filter.
+            return false;
+        }
+        return true;
+    }
 
-    inline void readyTest(std::string& test_name);
-    inline void reportTestResult(std::string& test_name,
-                                 int result);
+    void readyTest(std::string& test_name) {
+        printf("[ " "...." " ] %s\n", test_name.c_str());
+        if (options.printTestMessage) {
+            printf(_CL_D_GRAY("   === TEST MESSAGE (BEGIN) ===\n") _CLM_D_GRAY);
+        }
+        fflush(stdout);
+
+        startTimeLocal = std::chrono::system_clock::now();
+    }
+
+    void reportTestResult(std::string& test_name,
+                          int result) {
+        std::chrono::time_point<std::chrono::system_clock> cur_time =
+                std::chrono::system_clock::now();;
+        std::chrono::duration<double> elapsed = cur_time - startTimeLocal;
+        std::string time_str = usToString(elapsed.count() * 1000000);
+
+        if (result < 0) {
+            printf("[ " _CL_RED("FAIL") " ] %s (" _CL_BROWN("%s") ")\n",
+                   test_name.c_str(),
+                   time_str.c_str());
+            cntFail++;
+        } else {
+            if (options.printTestMessage) {
+                printf(_CL_D_GRAY("   === TEST MESSAGE (END) ===\n"));
+            } else {
+                // Move a line up.
+                printf("\033[1A");
+                // Clear current line.
+                printf("\r");
+                // And then overwrite.
+            }
+            printf("[ " _CL_GREEN("PASS") " ] %s (" _CL_BROWN("%s") ")\n",
+                   test_name.c_str(),
+                   time_str.c_str());
+            cntPass++;
+        }
+    }
+
+    std::string usToString(uint64_t us) {
+        std::stringstream ss;
+        if (us < 1000) {
+            // us
+            ss << std::fixed << std::setprecision(0) << us << " us";
+        } else if (us < 1000000) {
+            // ms
+            double tmp = static_cast<double>(us / 1000.0);
+            ss << std::fixed << std::setprecision(1) << tmp << " ms";
+        } else if (us < (uint64_t)600 * 1000000) {
+            // second: 1 s -- 600 s (10 mins)
+            double tmp = static_cast<double>(us / 1000000.0);
+            ss << std::fixed << std::setprecision(1) << tmp << " s";
+        } else {
+            // minute
+            double tmp = static_cast<double>(us / 60.0 / 1000000.0);
+            ss << std::fixed << std::setprecision(0) << tmp << " m";
+        }
+        return ss.str();
+    }
 
     size_t cntPass;
     size_t cntFail;
@@ -413,54 +528,23 @@ TestArgsGetStepsScan(int index,
     TestArgsGetStepsScan<I + 1, FuncT, Tp...>(index-1, t, r, f, steps_ret);
 }
 
-#define TEST_ARGS_CONTENTS() \
-    void setParam(size_t param_no, size_t param_idx) { \
-        TestArgsSetParamScan(param_no, args, ranges, \
-                             TestArgsSetParamFunctor(),\
-                             param_idx); } \
-    size_t getNumSteps(size_t param_no) { \
-        size_t ret = 0; \
-        TestArgsGetStepsScan(param_no, args, ranges, \
+#define TEST_ARGS_CONTENTS()                               \
+    void setParam(size_t param_no, size_t param_idx) {     \
+        TestArgsSetParamScan(param_no, args, ranges,       \
+                             TestArgsSetParamFunctor(),    \
+                             param_idx); }                 \
+    size_t getNumSteps(size_t param_no) {                  \
+        size_t ret = 0;                                    \
+        TestArgsGetStepsScan(param_no, args, ranges,       \
                              TestArgsGetNumStepsFunctor(), \
-                             ret); \
-        return ret; } \
-    size_t getNumParams() { return std::tuple_size<decltype(args)>::value; }
-
+                             ret);                         \
+        return ret; }                                      \
+    size_t getNumParams() {                                \
+        return std::tuple_size<decltype(args)>::value;     \
+    }
 
 
 // ===== TestArgsBase =====
-
-TestArgsBase::~TestArgsBase() { }
-
-void TestArgsBase::setCallback(std::string test_name,
-                               test_func_args func,
-                               TestSuite* test_instance) {
-    testName = test_name;
-    testFunction = func;
-    testInstance = test_instance;
-}
-
-void TestArgsBase::testAll() {
-    testAllInternal(0);
-}
-
-void TestArgsBase::setParam(size_t param_no, size_t param_idx) {
-    (void)param_no;
-    (void)param_idx;
-}
-
-size_t TestArgsBase::getNumSteps(size_t param_no) {
-    (void)param_no;
-    return 0;
-}
-
-size_t TestArgsBase::getNumParams() {
-    return 0;
-}
-
-std::string TestArgsBase::toString() {
-    return "";
-}
 
 void TestArgsBase::testAllInternal(size_t depth) {
     size_t i;
@@ -487,120 +571,6 @@ void TestArgsBase::testAllInternal(size_t depth) {
 
 
 // ===== TestSuite =====
-
-TestSuite::TestSuite()
-    : cntPass(0),
-      cntFail(0),
-      startTimeGlobal(std::chrono::system_clock::now()) {}
-
-TestSuite::TestSuite(int argc, char **argv)
-    : cntPass(0),
-      cntFail(0),
-      startTimeGlobal(std::chrono::system_clock::now()) {
-    if (argc >= 2) {
-        filter = argv[1];
-    }
-}
-
-static std::string usToString(uint64_t us) {
-    std::stringstream ss;
-    if (us < 1000) {
-        // us
-        ss << std::fixed << std::setprecision(0) << us << " us";
-    } else if (us < 1000000) {
-        // ms
-        double tmp = static_cast<double>(us / 1000.0);
-        ss << std::fixed << std::setprecision(1) << tmp << " ms";
-    } else if (us < (uint64_t)600 * 1000000) {
-        // second: 1 s -- 600 s (10 mins)
-        double tmp = static_cast<double>(us / 1000000.0);
-        ss << std::fixed << std::setprecision(1) << tmp << " s";
-    } else {
-        // minute
-        double tmp = static_cast<double>(us / 60.0 / 1000000.0);
-        ss << std::fixed << std::setprecision(0) << tmp << " m";
-    }
-    return ss.str();
-}
-
-TestSuite::~TestSuite() {
-    std::chrono::time_point<std::chrono::system_clock> cur_time =
-            std::chrono::system_clock::now();;
-    std::chrono::duration<double> elapsed = cur_time - startTimeGlobal;
-    std::string time_str = usToString(elapsed.count() * 1000000);
-
-    printf(_CL_GREEN("%zu") " tests passed", cntPass);
-    if (cntFail) {
-        printf(", " _CL_RED("%zu") " tests failed", cntFail);
-    }
-    printf(" out of " _CL_CYAN("%zu") " (" _CL_BROWN("%s") ")\n",
-           cntPass+cntFail, time_str.c_str());
-}
-
-std::string TestSuite::getTestFileName(std::string prefix) {
-    std::string ret = prefix;
-    int rnd_num = std::rand();
-    ret += "_";
-    ret += std::to_string(rnd_num);
-    return ret;
-}
-
-void TestSuite::clearTestFile(std::string prefix) {
-    int r;
-    (void)r;
-    std::string command = "rm -f ";
-    command += prefix;
-    command += "*";
-    r = system(command.c_str());
-}
-
-void TestSuite::readyTest(std::string& test_name) {
-    printf("[ " "...." " ] %s\n", test_name.c_str());
-    if (options.printTestMessage) {
-        printf(_CL_D_GRAY("   === TEST MESSAGE (BEGIN) ===\n") _CLM_D_GRAY);
-    }
-    fflush(stdout);
-
-    startTimeLocal = std::chrono::system_clock::now();
-}
-
-void TestSuite::reportTestResult(std::string& test_name,
-                                 int result) {
-    std::chrono::time_point<std::chrono::system_clock> cur_time =
-            std::chrono::system_clock::now();;
-    std::chrono::duration<double> elapsed = cur_time - startTimeLocal;
-    std::string time_str = usToString(elapsed.count() * 1000000);
-
-    if (result < 0) {
-        printf("[ " _CL_RED("FAIL") " ] %s (" _CL_BROWN("%s") ")\n",
-               test_name.c_str(),
-               time_str.c_str());
-        cntFail++;
-    } else {
-        if (options.printTestMessage) {
-            printf(_CL_D_GRAY("   === TEST MESSAGE (END) ===\n"));
-        } else {
-            // Move a line up.
-            printf("\033[1A");
-            // Clear current line.
-            printf("\r");
-            // And then overwrite.
-        }
-        printf("[ " _CL_GREEN("PASS") " ] %s (" _CL_BROWN("%s") ")\n",
-               test_name.c_str(),
-               time_str.c_str());
-        cntPass++;
-    }
-}
-
-bool TestSuite::matchFilter(std::string test_name) {
-    if (!filter.empty() &&
-        test_name.find(filter) == std::string::npos) {
-        // Doesn't match with the given filter.
-        return false;
-    }
-    return true;
-}
 
 void TestSuite::doTest(std::string test_name,
                        test_func func)
