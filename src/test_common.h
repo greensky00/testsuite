@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.19
+ * Version: 0.1.20
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -124,6 +124,18 @@
         << "    expected: " _CLM_B_GREEN << "non-NULL" << _CLM_END "\n" \
         << "      actual: " _CLM_B_RED << "NULL" << _CLM_END "\n";      \
         return -1;                                                      \
+    }
+
+#define CHK_Z(value)                                                     \
+    if ((0) != (value)) {                                                \
+        std::cout                                                        \
+        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"               \
+        << _CLM_GREEN << __LINE__ << _CLM_END << ", "                    \
+        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"                \
+        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"             \
+        << "    expected: " _CLM_B_GREEN << "0" << _CLM_END "\n"         \
+        << "      actual: " _CLM_B_RED << (value) << _CLM_END "\n";      \
+        return -1;                                                       \
     }
 
 #define CHK_SM(smaller, greater) \
