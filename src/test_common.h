@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.17
+ * Version: 0.1.18
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -39,6 +40,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -384,6 +386,22 @@ public:
         std::chrono::time_point<std::chrono::system_clock> start;
         size_t duration_ms;
     };
+
+    static void sleep_us(size_t us) {
+        std::this_thread::sleep_for(std::chrono::microseconds(us));
+    }
+    static void sleep_ms(size_t ms) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+    static void sleep_sec(size_t sec) {
+        std::this_thread::sleep_for(std::chrono::seconds(sec));
+    }
+
+    static std::string lzStr(size_t digit, uint64_t num) {
+        std::stringstream ss;
+        ss << std::setw(digit) << std::setfill('0') << std::to_string(num);
+        return ss.str();
+    }
 
     inline void doTest(std::string test_name,
                        test_func func);
