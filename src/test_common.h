@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.18
+ * Version: 0.1.19
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -371,6 +371,10 @@ public:
         r = system(command.c_str());
     }
 
+    static void setResultMessage(const std::string& msg) {
+        TestSuite::resMsg = msg;
+    }
+
     class Timer {
     public:
         Timer(size_t _duration_ms) : duration_ms(_duration_ms) {
@@ -420,6 +424,7 @@ public:
                          TestArgsBase* args);
 
     TestOptions options;
+    static std::string resMsg;
 
 private:
     bool matchFilter(std::string test_name) {
@@ -448,10 +453,15 @@ private:
         std::chrono::duration<double> elapsed = cur_time - startTimeLocal;
         std::string time_str = usToString(elapsed.count() * 1000000);
 
+        char msg_buf[1024];
+        sprintf(msg_buf, "%s (" _CL_BROWN("%s") ")%s%s",
+                test_name.c_str(),
+                time_str.c_str(),
+                (TestSuite::resMsg.empty() ? "" : ": "),
+                TestSuite::resMsg.c_str() );
+
         if (result < 0) {
-            printf("[ " _CL_RED("FAIL") " ] %s (" _CL_BROWN("%s") ")\n",
-                   test_name.c_str(),
-                   time_str.c_str());
+            printf("[ " _CL_RED("FAIL") " ] %s\n", msg_buf);
             cntFail++;
         } else {
             if (options.printTestMessage) {
@@ -463,9 +473,7 @@ private:
                 printf("\r");
                 // And then overwrite.
             }
-            printf("[ " _CL_GREEN("PASS") " ] %s (" _CL_BROWN("%s") ")\n",
-                   test_name.c_str(),
-                   time_str.c_str());
+            printf("[ " _CL_GREEN("PASS") " ] %s\n", msg_buf);
             cntPass++;
         }
     }
@@ -500,6 +508,7 @@ private:
     std::chrono::time_point<std::chrono::system_clock> startTimeGlobal;
 };
 
+std::string TestSuite::resMsg;
 
 // ===== Functor =====
 
@@ -613,6 +622,7 @@ void TestSuite::doTest(std::string test_name,
     if (!matchFilter(test_name)) return;
 
     readyTest(test_name);
+    TestSuite::resMsg = "";
     int ret = func();
     reportTestResult(test_name, ret);
 }
@@ -631,6 +641,7 @@ void TestSuite::doTestCB(std::string test_name,
                          test_func_args func,
                          TestArgsBase* args) {
     readyTest(test_name);
+    TestSuite::resMsg = "";
     int ret = func(args);
     reportTestResult(test_name, ret);
 }
