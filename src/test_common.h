@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.20
+ * Version: 0.1.21
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -50,6 +50,7 @@
 #define _CLM_RED       "\033[31m"
 #define _CLM_B_RED     "\033[1;31m"
 #define _CLM_BROWN     "\033[33m"
+#define _CLM_B_BROWN   "\033[1;33m"
 #define _CLM_BLUE      "\033[34m"
 #define _CLM_B_BLUE    "\033[1;34m"
 #define _CLM_MAGENTA   "\033[35m"
@@ -65,25 +66,29 @@
 #define _CL_B_MAGENTA(str) _CLM_MAGENTA str _CLM_END
 #define _CL_CYAN(str)      _CLM_CYAN    str _CLM_END
 
+#define __COUT_STACK_INFO__                                 \
+       "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"      \
+    << _CLM_B_MAGENTA << __LINE__ << _CLM_END << ", "       \
+    << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"       \
 
 #define CHK_EQ(exp_value, value)                                         \
-    if ((exp_value) != (value)) {                                        \
+{                                                                        \
+    auto _ev = (exp_value);                                              \
+    decltype(_ev) _v = (decltype(_ev))(value);                           \
+    if (_ev != _v) {                                                     \
         std::cout                                                        \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"               \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "                    \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"                \
+        << __COUT_STACK_INFO__                                           \
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"             \
-        << "    expected: " _CLM_B_GREEN << (exp_value) << _CLM_END "\n" \
-        << "      actual: " _CLM_B_RED << (value) << _CLM_END "\n";      \
+        << "    expected: " _CLM_B_GREEN << _ev << _CLM_END "\n"         \
+        << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";           \
         return -1;                                                       \
-    }
+    }                                                                    \
+}
 
 #define CHK_OK(value)                                                \
     if (!(value)) {                                                  \
         std::cout                                                    \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"           \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "                \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"            \
+        << __COUT_STACK_INFO__                                       \
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"         \
         << "    expected: " _CLM_B_GREEN << "true" << _CLM_END "\n"  \
         << "      actual: " _CLM_B_RED << "false" << _CLM_END "\n";  \
@@ -93,9 +98,7 @@
 #define CHK_NOT(value)                                               \
     if (value) {                                                     \
         std::cout                                                    \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"           \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "                \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"            \
+        << __COUT_STACK_INFO__                                       \
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"         \
         << "    expected: " _CLM_B_GREEN << "false" << _CLM_END "\n" \
         << "      actual: " _CLM_B_RED << "true" << _CLM_END "\n";   \
@@ -103,23 +106,22 @@
     }
 
 #define CHK_NULL(value)                                                \
-    if (value) {                                                       \
+{                                                                      \
+    auto _v = (value);                                                 \
+    if (_v) {                                                          \
         std::cout                                                      \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"             \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "                  \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"              \
+        << __COUT_STACK_INFO__                                         \
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"           \
         << "    expected: " _CLM_B_GREEN << "NULL" << _CLM_END "\n";   \
-        printf("      actual: " _CLM_B_RED "%p" _CLM_END "\n", value); \
+        printf("      actual: " _CLM_B_RED "%p" _CLM_END "\n", _v);    \
         return -1;                                                     \
-    }
+    }                                                                  \
+}
 
 #define CHK_NONNULL(value)                                              \
     if (!(value)) {                                                     \
         std::cout                                                       \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"              \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "                   \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"               \
+        << __COUT_STACK_INFO__                                          \
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
         << "    expected: " _CLM_B_GREEN << "non-NULL" << _CLM_END "\n" \
         << "      actual: " _CLM_B_RED << "NULL" << _CLM_END "\n";      \
@@ -127,84 +129,93 @@
     }
 
 #define CHK_Z(value)                                                     \
-    if ((0) != (value)) {                                                \
+{                                                                        \
+    auto _v = (value);                                                   \
+    if ((0) != _v) {                                                     \
         std::cout                                                        \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"               \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "                    \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"                \
+        << __COUT_STACK_INFO__                                           \
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"             \
         << "    expected: " _CLM_B_GREEN << "0" << _CLM_END "\n"         \
-        << "      actual: " _CLM_B_RED << (value) << _CLM_END "\n";      \
+        << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";           \
         return -1;                                                       \
-    }
+    }                                                                    \
+}
 
-#define CHK_SM(smaller, greater) \
-    if (!((smaller) < (greater))) {                           \
-        std::cout                                             \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"    \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "         \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"     \
-        << "    expected: "                                   \
-        << _CLM_B_BLUE #smaller " < " #greater _CLM_END "\n"  \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #smaller _CLM_END ": "                \
-        << _CLM_B_RED << smaller << _CLM_END "\n"             \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #greater _CLM_END ": "                \
-        << _CLM_B_RED << greater << _CLM_END "\n";            \
-        return -1;                                            \
-    }
+#define CHK_SM(smaller, greater)                                \
+{                                                               \
+    auto _sm = (smaller);                                       \
+    decltype(_sm) _gt = (decltype(_sm))(greater);               \
+    if (!(_sm < _gt)) {                                         \
+        std::cout                                               \
+        << __COUT_STACK_INFO__                                  \
+        << "    expected: "                                     \
+        << _CLM_B_BLUE #smaller " < " #greater _CLM_END "\n"    \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #smaller _CLM_END ": "                  \
+        << _CLM_B_RED << _sm << _CLM_END "\n"                   \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #greater _CLM_END ": "                  \
+        << _CLM_B_RED << _gt << _CLM_END "\n";                  \
+        return -1;                                              \
+    }                                                           \
+}
 
-#define CHK_SMEQ(smaller , greater)                           \
-    if (!((smaller) <= (greater))) {                          \
-        std::cout                                             \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"    \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "         \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"     \
-        << "    expected: "                                   \
-        << _CLM_B_BLUE #smaller " <= " #greater _CLM_END "\n" \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #smaller _CLM_END ": "                \
-        << _CLM_B_RED << smaller << _CLM_END "\n"             \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #greater _CLM_END ": "                \
-        << _CLM_B_RED << greater << _CLM_END "\n";            \
-        return -1;                                            \
-    }
+#define CHK_SMEQ(smaller , greater)                             \
+{                                                               \
+    auto _sm = (smaller);                                       \
+    decltype(_sm) _gt = (decltype(_sm))(greater);               \
+    if (!(_sm <= _gt)) {                                        \
+        std::cout                                               \
+        << __COUT_STACK_INFO__                                  \
+        << "    expected: "                                     \
+        << _CLM_B_BLUE #smaller " <= " #greater _CLM_END "\n"   \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #smaller _CLM_END ": "                  \
+        << _CLM_B_RED << _sm << _CLM_END "\n"                   \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #greater _CLM_END ": "                  \
+        << _CLM_B_RED << _gt << _CLM_END "\n";                  \
+        return -1;                                              \
+    }                                                           \
+}
 
-#define CHK_GT(greater, smaller)                              \
-    if (!((greater) > (smaller))) {                           \
-        std::cout                                             \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"    \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "         \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"     \
-        << "    expected: "                                   \
-        << _CLM_B_BLUE #greater " > " #smaller _CLM_END "\n"  \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #greater _CLM_END ": "                \
-        << _CLM_B_RED << greater << _CLM_END "\n"             \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #smaller _CLM_END ": "                \
-        << _CLM_B_RED << smaller << _CLM_END "\n";            \
-        return -1;                                            \
-    }
+#define CHK_GT(greater, smaller)                                \
+{                                                               \
+    auto _sm = (smaller);                                       \
+    decltype(_sm) _gt = (decltype(_sm))(greater);               \
+    if (!(_gt > _sm)) {                                         \
+        std::cout                                               \
+        << __COUT_STACK_INFO__                                  \
+        << "    expected: "                                     \
+        << _CLM_B_BLUE #greater " > " #smaller _CLM_END "\n"    \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #greater _CLM_END ": "                  \
+        << _CLM_B_RED << _gt << _CLM_END "\n"                   \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #smaller _CLM_END ": "                  \
+        << _CLM_B_RED << _sm << _CLM_END "\n";                  \
+        return -1;                                              \
+    }                                                           \
+}
 
-#define CHK_GTEQ(greater, smaller)                            \
-    if (!((greater) >= (smaller))) {                          \
-        std::cout                                             \
-        << "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"    \
-        << _CLM_GREEN << __LINE__ << _CLM_END << ", "         \
-        << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"     \
-        << "    expected: "                                   \
-        << _CLM_B_BLUE #greater " >= " #smaller _CLM_END "\n" \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #greater _CLM_END ": "                \
-        << _CLM_B_RED << greater << _CLM_END "\n"             \
-        << "    value of "                                    \
-        << _CLM_B_GREEN #smaller _CLM_END ": "                \
-        << _CLM_B_RED << smaller << _CLM_END "\n";            \
-        return -1;                                            \
-    }
+#define CHK_GTEQ(greater, smaller)                              \
+{                                                               \
+    auto _sm = (smaller);                                       \
+    decltype(_sm) _gt = (decltype(_sm))(greater);               \
+    if (!(_gt >= _sm)) {                                        \
+        std::cout                                               \
+        << __COUT_STACK_INFO__                                  \
+        << "    expected: "                                     \
+        << _CLM_B_BLUE #greater " >= " #smaller _CLM_END "\n"   \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #greater _CLM_END ": "                  \
+        << _CLM_B_RED << _gt << _CLM_END "\n"                   \
+        << "    value of "                                      \
+        << _CLM_B_GREEN #smaller _CLM_END ": "                  \
+        << _CLM_B_RED << _sms << _CLM_END "\n";                 \
+        return -1;                                              \
+    }                                                           \
+}
 
 
 using test_func = std::function<int()>;
