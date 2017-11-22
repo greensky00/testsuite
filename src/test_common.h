@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.22
+ * Version: 0.1.23
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -401,7 +401,7 @@ public:
     class Timer {
     public:
         Timer(size_t _duration_ms) : duration_ms(_duration_ms) {
-            start = std::chrono::system_clock::now();
+            reset();
         }
         bool timeover() {
             auto cur = std::chrono::system_clock::now();
@@ -413,6 +413,9 @@ public:
             auto cur = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed = cur - start;
             return (uint64_t)(elapsed.count() * 1000000);
+        }
+        void reset() {
+            start = std::chrono::system_clock::now();
         }
     private:
         std::chrono::time_point<std::chrono::system_clock> start;
