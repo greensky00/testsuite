@@ -13,11 +13,16 @@ int range_test_example(size_t arg) {
 int main() {
     TestSuite test;
 
-    test.doTest("range test example",
+    test.doTest("range test example, linear step",
                 range_test_example,
                 // linearly increasing size_t value,
                 // where 1 <= value <= 8, step 2: 1, 3, 5, 7.
-                TestRange<size_t>(1, 8, 2));
+                TestRange<size_t>(1, 8, 2, StepType::LINEAR) );
+
+    test.doTest("range test example, array",
+                range_test_example,
+                // value: {1, 3, 5, 7}.
+                TestRange<size_t>( {1, 3, 5, 7} ) );
 
     return 0;
 }

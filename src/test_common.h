@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.23
+ * Version: 0.1.24
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -43,6 +43,9 @@
 #include <thread>
 #include <tuple>
 #include <vector>
+
+#include <stdio.h>
+#include <stdarg.h>
 
 #define _CLM_D_GRAY    "\033[1;30m"
 #define _CLM_GREEN     "\033[32m"
@@ -212,7 +215,7 @@
         << _CLM_B_RED << _gt << _CLM_END "\n"                   \
         << "    value of "                                      \
         << _CLM_B_GREEN #smaller _CLM_END ": "                  \
-        << _CLM_B_RED << _sms << _CLM_END "\n";                 \
+        << _CLM_B_RED << _sm << _CLM_END "\n";                  \
         return -1;                                              \
     }                                                           \
 }
@@ -282,14 +285,13 @@ public:
     }
 
     // Constructor for given values
-    TestRange(const std::vector<T>& _array) :
-        type(RangeType::ARRAY), array(_array)
+    TestRange(const std::vector<T>& _array)
+        : type(RangeType::ARRAY), array(_array)
     { }
 
     // Constructor for regular steps
-    TestRange(T _begin, T _end, T _step,
-              StepType _type = StepType::LINEAR) :
-        begin(_begin), end(_end), step(_step)
+    TestRange(T _begin, T _end, T _step, StepType _type)
+        : begin(_begin), end(_end), step(_step)
     {
         if (_type == StepType::LINEAR) {
             type = RangeType::LINEAR;
@@ -349,6 +351,15 @@ struct TestOptions {
 
 class TestSuite {
 public:
+    static std::string& getResMsg() {
+        static std::string res_msg;
+        return res_msg;
+    }
+    static TestSuite*& getCurTest() {
+        static TestSuite* cur_test;
+        return cur_test;
+    }
+
     TestSuite()
         : cntPass(0),
           cntFail(0),
@@ -395,7 +406,8 @@ public:
     }
 
     static void setResultMessage(const std::string& msg) {
-        TestSuite::resMsg = msg;
+        std::string& dst = TestSuite::getResMsg();
+        dst = msg;
     }
 
     class Timer {
@@ -422,13 +434,29 @@ public:
         size_t duration_ms;
     };
 
-    static void sleep_us(size_t us) {
+    static size_t _msg(const char* format, ...) {
+        size_t cur_len = 0;
+        TestSuite* cur_test = TestSuite::getCurTest();
+        if ( cur_test &&
+             cur_test->options.printTestMessage ) {
+            va_list args;
+            va_start(args, format);
+            cur_len += vprintf(format, args);
+            va_end(args);
+        }
+        return cur_len;
+    }
+
+    static void sleep_us(size_t us, const std::string& msg = std::string()) {
+        if (!msg.empty()) TestSuite::_msg("%s (%zu us)\n", msg.c_str(), us);
         std::this_thread::sleep_for(std::chrono::microseconds(us));
     }
-    static void sleep_ms(size_t ms) {
+    static void sleep_ms(size_t ms, const std::string& msg = std::string()) {
+        if (!msg.empty()) TestSuite::_msg("%s (%zu ms)\n", msg.c_str(), ms);
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }
-    static void sleep_sec(size_t sec) {
+    static void sleep_sec(size_t sec, const std::string& msg = std::string()) {
+        if (!msg.empty()) TestSuite::_msg("%s (%zu s)\n", msg.c_str(), sec);
         std::this_thread::sleep_for(std::chrono::seconds(sec));
     }
 
@@ -455,7 +483,6 @@ public:
                          TestArgsBase* args);
 
     TestOptions options;
-    static std::string resMsg;
 
 private:
     bool matchFilter(std::string test_name) {
@@ -485,11 +512,12 @@ private:
         std::string time_str = usToString(elapsed.count() * 1000000);
 
         char msg_buf[1024];
+        std::string res_msg = TestSuite::getResMsg();
         sprintf(msg_buf, "%s (" _CL_BROWN("%s") ")%s%s",
                 test_name.c_str(),
                 time_str.c_str(),
-                (TestSuite::resMsg.empty() ? "" : ": "),
-                TestSuite::resMsg.c_str() );
+                (res_msg.empty() ? "" : ": "),
+                res_msg.c_str() );
 
         if (result < 0) {
             printf("[ " _CL_RED("FAIL") " ] %s\n", msg_buf);
@@ -538,8 +566,6 @@ private:
     // Start time of the entire test suite.
     std::chrono::time_point<std::chrono::system_clock> startTimeGlobal;
 };
-
-std::string TestSuite::resMsg;
 
 // ===== Functor =====
 
@@ -653,7 +679,10 @@ void TestSuite::doTest(std::string test_name,
     if (!matchFilter(test_name)) return;
 
     readyTest(test_name);
-    TestSuite::resMsg = "";
+    std::string& res_msg = TestSuite::getResMsg();
+    res_msg = "";
+    TestSuite*& cur_test = TestSuite::getCurTest();
+    cur_test = this;
     int ret = func();
     reportTestResult(test_name, ret);
 }
@@ -672,7 +701,10 @@ void TestSuite::doTestCB(std::string test_name,
                          test_func_args func,
                          TestArgsBase* args) {
     readyTest(test_name);
-    TestSuite::resMsg = "";
+    std::string& res_msg = TestSuite::getResMsg();
+    res_msg = "";
+    TestSuite*& cur_test = TestSuite::getCurTest();
+    cur_test = this;
     int ret = func(args);
     reportTestResult(test_name, ret);
 }

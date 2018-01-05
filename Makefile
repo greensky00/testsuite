@@ -1,7 +1,7 @@
 LDFLAGS =
 
 CXXFLAGS = \
-	-g -D_GNU_SOURCE \
+	-g -D_GNU_SOURCE -std=c++11 \
 	-I. -I./src -I./examples
 
 CXXFLAGS += -Wall

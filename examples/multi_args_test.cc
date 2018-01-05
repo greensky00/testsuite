@@ -24,20 +24,20 @@ int dual_args_test(PARAM_BASE) {
 // Triple-parameters example: {uint16_t, uint32_t, uint64_t}.
 
 DEFINE_PARAMS_3(my_triple_args,
-                // uint16_t array 'array_val' {1, 2}
-                uint16_t, array_val, ({1, 2}),
-                // linearly increasing uint32_t value 'linear',
-                // where 1 <= 'linear' <= 5, step 1: 1, 2, 3, 4, 5.
-                uint32_t, linear,    (1, 5, 1),
-                // exponentially increasing uint64_t value 'exp',
-                // where 2 <= 'exp' <= 20, multiplying by 2: 2, 4, 8, 16.
-                uint64_t, exp,       (2, 20, 2, StepType::EXPONENTIAL) );
+                // uint16_t array 'array_u16l' {1, 2}
+                uint16_t, array_u16, ({1, 2}),
+                // linearly increasing uint32_t value 'arg_l_u32',
+                // where 1 <= 'arg_l_u32' <= 5, step 1: 1, 2, 3, 4, 5.
+                uint32_t, arg_l_u32, (1, 5, 1, StepType::LINEAR),
+                // exponentially increasing uint64_t value 'arg_e_u64',
+                // where 2 <= 'arg_e_u64' <= 20, multiplying by 2: 2, 4, 8, 16.
+                uint64_t, arg_e_u64, (2, 20, 2, StepType::EXPONENTIAL) );
 
 int triple_args_test(PARAM_BASE) {
     GET_PARAMS(my_triple_args);
-    uint64_t mtp = my_triple_args->array_val
-                   * my_triple_args->linear
-                   * my_triple_args->exp;
+    uint64_t mtp = my_triple_args->array_u16
+                   * my_triple_args->arg_l_u32
+                   * my_triple_args->arg_e_u64;
     CHK_SMEQ(mtp, 160);
     CHK_GTEQ(mtp, 2);
 
