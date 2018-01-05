@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.24
+ * Version: 0.1.25
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -410,6 +410,8 @@ public:
         dst = msg;
     }
 
+    // === Timer things ====================================
+
     class Timer {
     public:
         Timer(size_t _duration_ms) : duration_ms(_duration_ms) {
@@ -466,6 +468,53 @@ public:
         return ss.str();
     }
 
+    // === Thread things ====================================
+
+    struct ThreadUserArgs {
+        // Opaque.
+    };
+
+    using ThreadFunc = std::function< int(ThreadUserArgs*) >;
+
+    struct ThreadArgs {
+        ThreadArgs() : userArgs(nullptr), func(nullptr), rc(0) {}
+        ThreadUserArgs* userArgs;
+        ThreadFunc func;
+        int rc;
+    };
+
+    using ThreadExitHandler = std::function< void(ThreadUserArgs*) >;
+
+    struct ThreadHolder {
+        ThreadHolder(std::thread* _tid, ThreadExitHandler _handler)
+            : tid(_tid), handler(_handler) {}
+        ThreadHolder(ThreadUserArgs* u_args,
+                     ThreadFunc t_func,
+                     ThreadExitHandler t_handler)
+            : handler(t_handler)
+        {
+            args.userArgs = u_args;
+            args.func = t_func;
+            tid = new std::thread(spawnThread, &args);
+        }
+        ~ThreadHolder() {
+            if (!tid) return;
+            if (tid->joinable()) {
+                handler(args.userArgs);
+                tid->join();
+            }
+            delete tid;
+            tid = nullptr;
+        }
+        int getResult() const { return args.rc; }
+        std::thread* tid;
+        ThreadExitHandler handler;
+        ThreadArgs args;
+    };
+
+
+    // === doTest things ====================================
+
     inline void doTest(std::string test_name,
                        test_func func);
 
@@ -485,6 +534,10 @@ public:
     TestOptions options;
 
 private:
+    static void spawnThread(ThreadArgs* args) {
+        args->rc = args->func(args->userArgs);
+    }
+
     bool matchFilter(std::string test_name) {
         if (!filter.empty() &&
             test_name.find(filter) == std::string::npos) {
