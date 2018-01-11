@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.25
+ * Version: 0.1.27
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -46,6 +46,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 
 #define _CLM_D_GRAY    "\033[1;30m"
 #define _CLM_GREEN     "\033[32m"
@@ -74,53 +75,62 @@
     << _CLM_B_MAGENTA << __LINE__ << _CLM_END << ", "       \
     << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"       \
 
-#define CHK_EQ(exp_value, value)                                         \
-{                                                                        \
-    auto _ev = (exp_value);                                              \
-    decltype(_ev) _v = (decltype(_ev))(value);                           \
-    if (_ev != _v) {                                                     \
-        std::cout                                                        \
-        << __COUT_STACK_INFO__                                           \
-        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"             \
-        << "    expected: " _CLM_B_GREEN << _ev << _CLM_END "\n"         \
-        << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";           \
-        return -1;                                                       \
-    }                                                                    \
+// exp_value == value
+#define CHK_EQ(exp_value, value)                                        \
+{                                                                       \
+    auto _ev = (exp_value);                                             \
+    decltype(_ev) _v = (decltype(_ev))(value);                          \
+    if (_ev != _v) {                                                    \
+        std::cout                                                       \
+        << __COUT_STACK_INFO__                                          \
+        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
+        << "    expected: " _CLM_B_GREEN << _ev << _CLM_END "\n"        \
+        << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";          \
+        TestSuite::failHandler();                                       \
+        return -1;                                                      \
+    }                                                                   \
 }
 
-#define CHK_OK(value)                                                \
-    if (!(value)) {                                                  \
-        std::cout                                                    \
-        << __COUT_STACK_INFO__                                       \
-        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"         \
-        << "    expected: " _CLM_B_GREEN << "true" << _CLM_END "\n"  \
-        << "      actual: " _CLM_B_RED << "false" << _CLM_END "\n";  \
-        return -1;                                                   \
+// value == true
+#define CHK_OK(value)                                                   \
+    if (!(value)) {                                                     \
+        std::cout                                                       \
+        << __COUT_STACK_INFO__                                          \
+        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
+        << "    expected: " _CLM_B_GREEN << "true" << _CLM_END "\n"     \
+        << "      actual: " _CLM_B_RED << "false" << _CLM_END "\n";     \
+        TestSuite::failHandler();                                       \
+        return -1;                                                      \
     }
 
-#define CHK_NOT(value)                                               \
-    if (value) {                                                     \
-        std::cout                                                    \
-        << __COUT_STACK_INFO__                                       \
-        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"         \
-        << "    expected: " _CLM_B_GREEN << "false" << _CLM_END "\n" \
-        << "      actual: " _CLM_B_RED << "true" << _CLM_END "\n";   \
-        return -1;                                                   \
+// value == false
+#define CHK_NOT(value)                                                  \
+    if (value) {                                                        \
+        std::cout                                                       \
+        << __COUT_STACK_INFO__                                          \
+        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
+        << "    expected: " _CLM_B_GREEN << "false" << _CLM_END "\n"    \
+        << "      actual: " _CLM_B_RED << "true" << _CLM_END "\n";      \
+        TestSuite::failHandler();                                       \
+        return -1;                                                      \
     }
 
-#define CHK_NULL(value)                                                \
-{                                                                      \
-    auto _v = (value);                                                 \
-    if (_v) {                                                          \
-        std::cout                                                      \
-        << __COUT_STACK_INFO__                                         \
-        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"           \
-        << "    expected: " _CLM_B_GREEN << "NULL" << _CLM_END "\n";   \
-        printf("      actual: " _CLM_B_RED "%p" _CLM_END "\n", _v);    \
-        return -1;                                                     \
-    }                                                                  \
+// value == NULL
+#define CHK_NULL(value)                                                 \
+{                                                                       \
+    auto _v = (value);                                                  \
+    if (_v) {                                                           \
+        std::cout                                                       \
+        << __COUT_STACK_INFO__                                          \
+        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
+        << "    expected: " _CLM_B_GREEN << "NULL" << _CLM_END "\n";    \
+        printf("      actual: " _CLM_B_RED "%p" _CLM_END "\n", _v);     \
+        TestSuite::failHandler();                                       \
+        return -1;                                                      \
+    }                                                                   \
 }
 
+// value != NULL
 #define CHK_NONNULL(value)                                              \
     if (!(value)) {                                                     \
         std::cout                                                       \
@@ -128,22 +138,26 @@
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
         << "    expected: " _CLM_B_GREEN << "non-NULL" << _CLM_END "\n" \
         << "      actual: " _CLM_B_RED << "NULL" << _CLM_END "\n";      \
+        TestSuite::failHandler();                                       \
         return -1;                                                      \
     }
 
-#define CHK_Z(value)                                                     \
-{                                                                        \
-    auto _v = (value);                                                   \
-    if ((0) != _v) {                                                     \
-        std::cout                                                        \
-        << __COUT_STACK_INFO__                                           \
-        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"             \
-        << "    expected: " _CLM_B_GREEN << "0" << _CLM_END "\n"         \
-        << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";           \
-        return -1;                                                       \
-    }                                                                    \
+// value == 0
+#define CHK_Z(value)                                                    \
+{                                                                       \
+    auto _v = (value);                                                  \
+    if ((0) != _v) {                                                    \
+        std::cout                                                       \
+        << __COUT_STACK_INFO__                                          \
+        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
+        << "    expected: " _CLM_B_GREEN << "0" << _CLM_END "\n"        \
+        << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";          \
+        TestSuite::failHandler();                                       \
+        return -1;                                                      \
+    }                                                                   \
 }
 
+// smaller < greater
 #define CHK_SM(smaller, greater)                                \
 {                                                               \
     auto _sm = (smaller);                                       \
@@ -159,10 +173,12 @@
         << "    value of "                                      \
         << _CLM_B_GREEN #greater _CLM_END ": "                  \
         << _CLM_B_RED << _gt << _CLM_END "\n";                  \
+        TestSuite::failHandler();                               \
         return -1;                                              \
     }                                                           \
 }
 
+// smaller <= greater
 #define CHK_SMEQ(smaller , greater)                             \
 {                                                               \
     auto _sm = (smaller);                                       \
@@ -178,10 +194,12 @@
         << "    value of "                                      \
         << _CLM_B_GREEN #greater _CLM_END ": "                  \
         << _CLM_B_RED << _gt << _CLM_END "\n";                  \
+        TestSuite::failHandler();                               \
         return -1;                                              \
     }                                                           \
 }
 
+// greater > smaller
 #define CHK_GT(greater, smaller)                                \
 {                                                               \
     auto _sm = (smaller);                                       \
@@ -197,10 +215,12 @@
         << "    value of "                                      \
         << _CLM_B_GREEN #smaller _CLM_END ": "                  \
         << _CLM_B_RED << _sm << _CLM_END "\n";                  \
+        TestSuite::failHandler();                               \
         return -1;                                              \
     }                                                           \
 }
 
+// greater >= smaller
 #define CHK_GTEQ(greater, smaller)                              \
 {                                                               \
     auto _sm = (smaller);                                       \
@@ -216,6 +236,7 @@
         << "    value of "                                      \
         << _CLM_B_GREEN #smaller _CLM_END ": "                  \
         << _CLM_B_RED << _sm << _CLM_END "\n";                  \
+        TestSuite::failHandler();                               \
         return -1;                                              \
     }                                                           \
 }
@@ -344,9 +365,11 @@ private:
 struct TestOptions {
     TestOptions()
         : printTestMessage(false)
+        , abortOnFailure(false)
         {}
 
     bool printTestMessage;
+    bool abortOnFailure;
 };
 
 class TestSuite {
@@ -359,6 +382,10 @@ public:
         static TestSuite* cur_test;
         return cur_test;
     }
+    static void failHandler() {
+        TestSuite* tt = getCurTest();
+        if (tt->options.abortOnFailure) assert(0);
+    }
 
     TestSuite()
         : cntPass(0),
@@ -369,8 +396,14 @@ public:
         : cntPass(0),
           cntFail(0),
           startTimeGlobal(std::chrono::system_clock::now()) {
-        if (argc >= 2) {
-            filter = argv[1];
+        if (argc >= 3) {
+            for (int ii=1; ii<argc-1; ++ii) {
+                if ( !strcmp(argv[ii], "-f") ||
+                     !strcmp(argv[ii], "--filter") ) {
+                    filter = argv[ii+1];
+                    break;
+                }
+            }
         }
     }
 
@@ -408,6 +441,11 @@ public:
     static void setResultMessage(const std::string& msg) {
         std::string& dst = TestSuite::getResMsg();
         dst = msg;
+    }
+
+    static void appendResultMessage(const std::string& msg) {
+        std::string& dst = TestSuite::getResMsg();
+        dst += msg;
     }
 
     // === Timer things ====================================
@@ -468,6 +506,39 @@ public:
         return ss.str();
     }
 
+
+    // === Progress things ==================================
+
+    class Progress {
+    public:
+        Progress(uint64_t _num, const std::string& _comment = std::string())
+            : curValue(0)
+            , num(_num)
+            , timer(0)
+            , lastPrintTimeUs(timer.getTimeUs())
+            , comment(_comment) {}
+        void update(uint64_t cur) {
+            curValue = cur;
+            uint64_t curTimeUs = timer.getTimeUs();
+            if (curTimeUs - lastPrintTimeUs > 50000 ||
+                cur == 0 || curValue >= num) {
+                // Print every 0.05 sec.
+                lastPrintTimeUs = curTimeUs;
+                _msg("\r%s: %ld/%ld (%.1f%%)",
+                     comment.c_str(), curValue, num, (double)curValue*100/num);
+                fflush(stdout);
+            }
+            if (curValue >= num) _msg("\n");
+        }
+    private:
+        uint64_t curValue;
+        uint64_t num;
+        Timer timer;
+        uint64_t lastPrintTimeUs;
+        std::string comment;
+    };
+
+
     // === Thread things ====================================
 
     struct ThreadUserArgs {
@@ -505,6 +576,12 @@ public:
             }
             delete tid;
             tid = nullptr;
+        }
+        void join() {
+            if (!tid) return;
+            if (tid->joinable()) {
+                tid->join();
+            }
         }
         int getResult() const { return args.rc; }
         std::thread* tid;
@@ -777,8 +854,13 @@ void TestSuite::doTest(std::string test_name,
         T cur_arg = range.getEntry(i);
         ss << cur_arg;
         actual_test_name += " (" + ss.str() + ")";
-
         readyTest(actual_test_name);
+
+        std::string& res_msg = TestSuite::getResMsg();
+        res_msg = "";
+        TestSuite*& cur_test = TestSuite::getCurTest();
+        cur_test = this;
+
         int ret = func(range.getEntry(i));
         reportTestResult(actual_test_name, ret);
     }
