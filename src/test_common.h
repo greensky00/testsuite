@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.28
+ * Version: 0.1.29
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -553,26 +553,27 @@ public:
 
 
     // === Thread things ====================================
-
-    struct ThreadUserArgs {
+    struct ThreadArgs {
         // Opaque.
     };
 
-    using ThreadFunc = std::function< int(ThreadUserArgs*) >;
+    using ThreadFunc = std::function< int(ThreadArgs*) >;
 
-    struct ThreadArgs {
-        ThreadArgs() : userArgs(nullptr), func(nullptr), rc(0) {}
-        ThreadUserArgs* userArgs;
+private:
+    struct ThreadInternalArgs {
+        ThreadInternalArgs() : userArgs(nullptr), func(nullptr), rc(0) {}
+        ThreadArgs* userArgs;
         ThreadFunc func;
         int rc;
     };
 
-    using ThreadExitHandler = std::function< void(ThreadUserArgs*) >;
+public:
+    using ThreadExitHandler = std::function< void(ThreadArgs*) >;
 
     struct ThreadHolder {
         ThreadHolder(std::thread* _tid, ThreadExitHandler _handler)
             : tid(_tid), handler(_handler) {}
-        ThreadHolder(ThreadUserArgs* u_args,
+        ThreadHolder(ThreadArgs* u_args,
                      ThreadFunc t_func,
                      ThreadExitHandler t_handler)
             : handler(t_handler)
@@ -599,7 +600,7 @@ public:
         int getResult() const { return args.rc; }
         std::thread* tid;
         ThreadExitHandler handler;
-        ThreadArgs args;
+        ThreadInternalArgs args;
     };
 
 
@@ -624,7 +625,7 @@ public:
     TestOptions options;
 
 private:
-    static void spawnThread(ThreadArgs* args) {
+    static void spawnThread(ThreadInternalArgs* args) {
         args->rc = args->func(args->userArgs);
     }
 
