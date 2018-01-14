@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.27
+ * Version: 0.1.28
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -390,22 +390,35 @@ public:
     TestSuite()
         : cntPass(0),
           cntFail(0),
+          useGivenRange(false),
+          givenRange(0),
           startTimeGlobal(std::chrono::system_clock::now()) {}
 
     TestSuite(int argc, char **argv)
         : cntPass(0),
           cntFail(0),
-          startTimeGlobal(std::chrono::system_clock::now()) {
-        if (argc >= 3) {
-            for (int ii=1; ii<argc-1; ++ii) {
-                if ( !strcmp(argv[ii], "-f") ||
-                     !strcmp(argv[ii], "--filter") ) {
-                    filter = argv[ii+1];
-                    break;
-                }
+          useGivenRange(false),
+          givenRange(0),
+          startTimeGlobal(std::chrono::system_clock::now())
+    {
+        if (argc < 3) return;
+
+        for (int ii=1; ii<argc-1; ++ii) {
+            // Filter
+            if ( !strcmp(argv[ii], "-f") ||
+                 !strcmp(argv[ii], "--filter") ) {
+                filter = argv[++ii];
+            }
+
+            // Range
+            if ( !strcmp(argv[ii], "-r") ||
+                 !strcmp(argv[ii], "--range") ) {
+                givenRange = atoi(argv[++ii]);
+                useGivenRange = true;
             }
         }
-    }
+
+   }
 
     ~TestSuite() {
         std::chrono::time_point<std::chrono::system_clock> cur_time =
@@ -691,6 +704,8 @@ private:
     size_t cntPass;
     size_t cntFail;
     std::string filter;
+    bool useGivenRange;
+    int64_t givenRange;
     // Start time of each test.
     std::chrono::time_point<std::chrono::system_clock> startTimeLocal;
     // Start time of the entire test suite.
@@ -845,13 +860,18 @@ void TestSuite::doTest(std::string test_name,
                        TestRange<T> range) {
     if (!matchFilter(test_name)) return;
 
-    size_t n = range.getSteps();
+    size_t n = (useGivenRange) ? 1 : range.getSteps();
     size_t i;
 
     for (i=0; i<n; ++i) {
         std::string actual_test_name = test_name;
         std::stringstream ss;
-        T cur_arg = range.getEntry(i);
+
+
+        T cur_arg = (useGivenRange)
+                    ? givenRange
+                    : range.getEntry(i);
+
         ss << cur_arg;
         actual_test_name += " (" + ss.str() + ")";
         readyTest(actual_test_name);
@@ -861,7 +881,7 @@ void TestSuite::doTest(std::string test_name,
         TestSuite*& cur_test = TestSuite::getCurTest();
         cur_test = this;
 
-        int ret = func(range.getEntry(i));
+        int ret = func(cur_arg);
         reportTestResult(actual_test_name, ret);
     }
 }

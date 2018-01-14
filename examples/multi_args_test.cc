@@ -44,8 +44,8 @@ int triple_args_test(PARAM_BASE) {
     return 0;
 }
 
-int main() {
-    TestSuite test;
+int main(int argc, char** argv) {
+    TestSuite test(argc, argv);
 
     SET_PARAMS(my_dual_args);
     test.doTest("dual arguments test example",

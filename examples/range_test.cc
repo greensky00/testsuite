@@ -10,8 +10,8 @@ int range_test_example(size_t arg) {
     return 0;
 }
 
-int main() {
-    TestSuite test;
+int main(int argc, char** argv) {
+    TestSuite test(argc, argv);
 
     test.doTest("range test example, linear step",
                 range_test_example,
