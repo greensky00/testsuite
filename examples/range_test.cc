@@ -1,6 +1,6 @@
-#include <stdio.h>
-
 #include "test_common.h"
+
+#include <stdio.h>
 
 int range_test_example(size_t arg) {
     CHK_SM(arg, 8);

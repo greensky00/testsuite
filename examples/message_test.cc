@@ -1,6 +1,6 @@
-#include <stdio.h>
-
 #include "test_common.h"
+
+#include <stdio.h>
 
 int message_test_example()
 {

@@ -1,8 +1,8 @@
-#include <stdio.h>
+#include "test_common.h"
 
 #include <vector>
 
-#include "test_common.h"
+#include <stdio.h>
 
 struct TestData {
     enum class Type{
