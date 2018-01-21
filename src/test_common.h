@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.31
+ * Version: 0.1.32
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -376,38 +376,83 @@ public:
         if (tt->options.abortOnFailure) assert(0);
     }
 
+private:
+    void usage(int argc, char** argv) {
+        printf("\n");
+        printf("Usage: %s [-f <keyword>] [-r <parameter>] [-p]\n", argv[0]);
+        printf("\n");
+        printf("    -f, --filter\n");
+        printf("        Run specific tests matching the given keyword.\n");
+        printf("    -r, --range\n");
+        printf("        Run TestRange-based tests using given parameter value.\n");
+        printf("    -p, --preserve\n");
+        printf("        Do not clean up test files.\n");
+        printf("\n");
+    }
+
+    struct TimeInfo {
+        TimeInfo(std::tm* src)
+            : year(src->tm_year + 1900)
+            , month(src->tm_mon + 1)
+            , day(src->tm_mday)
+            , hour(src->tm_hour)
+            , min(src->tm_min)
+            , sec(src->tm_sec) {}
+        int year;
+        int month;
+        int day;
+        int hour;
+        int min;
+        int sec;
+    };
+
+public:
     TestSuite()
-        : cntPass(0),
-          cntFail(0),
-          useGivenRange(false),
-          givenRange(0),
-          startTimeGlobal(std::chrono::system_clock::now()) {}
+        : cntPass(0)
+        , cntFail(0)
+        , useGivenRange(false)
+        , preserveTestFiles(false)
+        , givenRange(0)
+        , startTimeGlobal(std::chrono::system_clock::now()) {}
 
     TestSuite(int argc, char **argv)
-        : cntPass(0),
-          cntFail(0),
-          useGivenRange(false),
-          givenRange(0),
-          startTimeGlobal(std::chrono::system_clock::now())
+        : cntPass(0)
+        , cntFail(0)
+        , useGivenRange(false)
+        , preserveTestFiles(false)
+        , givenRange(0)
+        , startTimeGlobal(std::chrono::system_clock::now())
     {
-        if (argc < 3) return;
-
-        for (int ii=1; ii<argc-1; ++ii) {
+        for (int ii=1; ii<argc; ++ii) {
             // Filter
-            if ( !strcmp(argv[ii], "-f") ||
-                 !strcmp(argv[ii], "--filter") ) {
+            if ( ii < argc-1 &&
+                 (!strcmp(argv[ii], "-f") ||
+                  !strcmp(argv[ii], "--filter")) ) {
                 filter = argv[++ii];
             }
 
             // Range
-            if ( !strcmp(argv[ii], "-r") ||
-                 !strcmp(argv[ii], "--range") ) {
+            if ( ii < argc-1 &&
+                 (!strcmp(argv[ii], "-r") ||
+                  !strcmp(argv[ii], "--range")) ) {
                 givenRange = atoi(argv[++ii]);
                 useGivenRange = true;
             }
-        }
 
-   }
+            // Do not clean up test files after test
+            if ( !strcmp(argv[ii], "-p") ||
+                 !strcmp(argv[ii], "--preserve") ) {
+                preserveTestFiles = true;
+            }
+
+            // Help
+            if ( !strcmp(argv[ii], "-h") ||
+                 !strcmp(argv[ii], "--help") ) {
+                usage(argc, argv);
+                exit(0);
+            }
+        }
+    }
 
     ~TestSuite() {
         std::chrono::time_point<std::chrono::system_clock> cur_time =
@@ -423,21 +468,40 @@ public:
                cntPass+cntFail, time_str.c_str());
     }
 
-    static std::string getTestFileName(std::string prefix) {
+    static std::string getTestFileName(const std::string& prefix) {
+        auto now = std::chrono::system_clock::now();
+        std::time_t raw_time = std::chrono::system_clock::to_time_t(now);
+        std::tm* lt_tm = std::localtime(&raw_time);
+        TimeInfo lt(lt_tm);
+        (void)lt;
+
+        char time_char[64];
+        sprintf(time_char, "%04d%02d%02d_%02d%02d%02d",
+                lt.year, lt.month, lt.day, lt.hour, lt.min, lt.sec);
+
         std::string ret = prefix;
-        int rnd_num = std::rand();
         ret += "_";
-        ret += std::to_string(rnd_num);
+        ret += time_char;
         return ret;
     }
 
-    static void clearTestFile(std::string prefix) {
+    enum TestPosition {
+        BEGINNING_OF_TEST   = 0,
+        MIDDLE_OF_TEST      = 1,
+        END_OF_TEST         = 2,
+    };
+
+    static void clearTestFile( const std::string& prefix,
+                               TestPosition test_pos = MIDDLE_OF_TEST ) {
+        TestSuite*& cur_test = TestSuite::getCurTest();
+        if (test_pos == END_OF_TEST && cur_test->preserveTestFiles) return;
+
         int r;
-        (void)r;
         std::string command = "rm -rf ";
         command += prefix;
         command += "*";
         r = system(command.c_str());
+        (void)r;
     }
 
     static void setResultMessage(const std::string& msg) {
@@ -520,40 +584,52 @@ public:
 
     class Progress {
     public:
-        Progress(uint64_t _num, const std::string& _comment = std::string())
+        Progress(uint64_t _num,
+                 const std::string& _comment = std::string(),
+                 const std::string& _unit = std::string())
             : curValue(0)
             , num(_num)
             , timer(0)
             , lastPrintTimeUs(timer.getTimeUs())
-            , comment(_comment) {}
+            , comment(_comment)
+            , unit(_unit) {}
         void update(uint64_t cur) {
             curValue = cur;
             uint64_t curTimeUs = timer.getTimeUs();
             if (curTimeUs - lastPrintTimeUs > 50000 ||
                 cur == 0 || curValue >= num) {
-                // Print every 0.05 sec.
+                // Print every 0.05 sec (20 Hz).
                 lastPrintTimeUs = curTimeUs;
-                _msg("\r%s: %ld/%ld (%.1f%%)",
-                     comment.c_str(), curValue, num, (double)curValue*100/num);
+                std::string _comment =
+                    (comment.empty()) ? "" : comment + ": ";
+                std::string _unit =
+                    (unit.empty()) ? "" : unit + " ";
+
+                _msg("\r%s%ld/%ld %s(%.1f%%)",
+                     _comment.c_str(), curValue, num, _unit.c_str(),
+                     (double)curValue*100/num);
                 fflush(stdout);
             }
-            if (curValue >= num) _msg("\n");
+            if (curValue >= num) {
+                _msg("\n");
+                fflush(stdout);
+            }
         }
+        void done() { if (curValue < num) update(num); }
     private:
         uint64_t curValue;
         uint64_t num;
         Timer timer;
         uint64_t lastPrintTimeUs;
         std::string comment;
+        std::string unit;
     };
 
 
     // === Thread things ====================================
-    struct ThreadArgs {
-        // Opaque.
-    };
-
+    struct ThreadArgs { /* Opaque. */ };
     using ThreadFunc = std::function< int(ThreadArgs*) >;
+    using ThreadExitHandler = std::function< void(ThreadArgs*) >;
 
 private:
     struct ThreadInternalArgs {
@@ -564,8 +640,6 @@ private:
     };
 
 public:
-    using ThreadExitHandler = std::function< void(ThreadArgs*) >;
-
     struct ThreadHolder {
         ThreadHolder(std::thread* _tid, ThreadExitHandler _handler)
             : tid(_tid), handler(_handler) {}
@@ -779,6 +853,7 @@ private:
     size_t cntFail;
     std::string filter;
     bool useGivenRange;
+    bool preserveTestFiles;
     int64_t givenRange;
     // Start time of each test.
     std::chrono::time_point<std::chrono::system_clock> startTimeLocal;
