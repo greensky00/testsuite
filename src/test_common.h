@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.32
+ * Version: 0.1.33
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -45,22 +45,39 @@
 #include <vector>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 
-#define _CLM_D_GRAY    "\033[1;30m"
-#define _CLM_GREEN     "\033[32m"
-#define _CLM_B_GREEN   "\033[1;32m"
-#define _CLM_RED       "\033[31m"
-#define _CLM_B_RED     "\033[1;31m"
-#define _CLM_BROWN     "\033[33m"
-#define _CLM_B_BROWN   "\033[1;33m"
-#define _CLM_BLUE      "\033[34m"
-#define _CLM_B_BLUE    "\033[1;34m"
-#define _CLM_MAGENTA   "\033[35m"
-#define _CLM_B_MAGENTA "\033[1;35m"
-#define _CLM_CYAN      "\033[36m"
-#define _CLM_END       "\033[0m"
+#ifdef TESTSUITE_NO_COLOR
+    #define _CLM_D_GRAY     ""
+    #define _CLM_GREEN      ""
+    #define _CLM_B_GREEN    ""
+    #define _CLM_RED        ""
+    #define _CLM_B_RED      ""
+    #define _CLM_BROWN      ""
+    #define _CLM_B_BROWN    ""
+    #define _CLM_BLUE       ""
+    #define _CLM_B_BLUE     ""
+    #define _CLM_MAGENTA    ""
+    #define _CLM_B_MAGENTA  ""
+    #define _CLM_CYAN       ""
+    #define _CLM_END        ""
+#else
+    #define _CLM_D_GRAY    "\033[1;30m"
+    #define _CLM_GREEN     "\033[32m"
+    #define _CLM_B_GREEN   "\033[1;32m"
+    #define _CLM_RED       "\033[31m"
+    #define _CLM_B_RED     "\033[1;31m"
+    #define _CLM_BROWN     "\033[33m"
+    #define _CLM_B_BROWN   "\033[1;33m"
+    #define _CLM_BLUE      "\033[34m"
+    #define _CLM_B_BLUE    "\033[1;34m"
+    #define _CLM_MAGENTA   "\033[35m"
+    #define _CLM_B_MAGENTA "\033[1;35m"
+    #define _CLM_CYAN      "\033[36m"
+    #define _CLM_END       "\033[0m"
+#endif
 
 #define _CL_D_GRAY(str)    _CLM_D_GRAY  str _CLM_END
 #define _CL_GREEN(str)     _CLM_GREEN   str _CLM_END
@@ -373,7 +390,7 @@ public:
     }
     static void failHandler() {
         TestSuite* tt = getCurTest();
-        if (tt->options.abortOnFailure) assert(0);
+        if (tt->options.abortOnFailure || tt->forceAbortOnFailure) assert(0);
     }
 
 private:
@@ -412,6 +429,7 @@ public:
         , cntFail(0)
         , useGivenRange(false)
         , preserveTestFiles(false)
+        , forceAbortOnFailure(false)
         , givenRange(0)
         , startTimeGlobal(std::chrono::system_clock::now()) {}
 
@@ -420,6 +438,7 @@ public:
         , cntFail(0)
         , useGivenRange(false)
         , preserveTestFiles(false)
+        , forceAbortOnFailure(false)
         , givenRange(0)
         , startTimeGlobal(std::chrono::system_clock::now())
     {
@@ -443,6 +462,11 @@ public:
             if ( !strcmp(argv[ii], "-p") ||
                  !strcmp(argv[ii], "--preserve") ) {
                 preserveTestFiles = true;
+            }
+
+            // Force abort on failure
+            if ( !strcmp(argv[ii], "--abort-on-failure") ) {
+                forceAbortOnFailure = true;
             }
 
             // Help
@@ -854,6 +878,7 @@ private:
     std::string filter;
     bool useGivenRange;
     bool preserveTestFiles;
+    bool forceAbortOnFailure;
     int64_t givenRange;
     // Start time of each test.
     std::chrono::time_point<std::chrono::system_clock> startTimeLocal;
