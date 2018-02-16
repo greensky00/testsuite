@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.33
+ * Version: 0.1.38
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -48,6 +48,8 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #ifdef TESTSUITE_NO_COLOR
     #define _CLM_D_GRAY     ""
@@ -87,10 +89,15 @@
 #define _CL_B_MAGENTA(str) _CLM_MAGENTA str _CLM_END
 #define _CL_CYAN(str)      _CLM_CYAN    str _CLM_END
 
-#define __COUT_STACK_INFO__                                 \
-       "\n    " _CLM_GREEN << __FILE__ << _CLM_END ":"      \
-    << _CLM_B_MAGENTA << __LINE__ << _CLM_END << ", "       \
-    << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"       \
+#define __COUT_STACK_INFO__                                                     \
+       std::endl                                                                \
+    << "      thread: " << _CLM_BROWN                                           \
+    << std::hex << std::setw(4) << std::setfill('0') <<                         \
+       (std::hash<std::thread::id>{}( std::this_thread::get_id() ) & 0xffff)    \
+    << std::dec << _CLM_END << "\n"                                             \
+    << "          in: " << _CLM_CYAN << __func__ << "()" _CLM_END << "\n"       \
+    << "          at: " << _CLM_GREEN << __FILE__ << _CLM_END ":"               \
+    << _CLM_B_MAGENTA << __LINE__ << _CLM_END << "\n"                           \
 
 // exp_value == value
 #define CHK_EQ(exp_value, value)                                        \
@@ -379,22 +386,48 @@ struct TestOptions {
 
 class TestSuite {
     friend TestArgsBase;
-public:
+private:
     static std::string& getResMsg() {
         static std::string res_msg;
         return res_msg;
+    }
+    static std::string& getInfoMsg() {
+        thread_local std::string info_msg;
+        return info_msg;
+    }
+    static std::string& getTestName() {
+        static std::string test_name;
+        return test_name;
     }
     static TestSuite*& getCurTest() {
         static TestSuite* cur_test;
         return cur_test;
     }
-    static void failHandler() {
-        TestSuite* tt = getCurTest();
-        if (tt->options.abortOnFailure || tt->forceAbortOnFailure) assert(0);
+public:
+    static std::string getCurrentTestName() {
+        return getTestName();
     }
 
-private:
-    void usage(int argc, char** argv) {
+    static void setInfo(const char* format, ...) {
+        thread_local char info_buf[4096];
+        size_t len = 0;
+        va_list args;
+        va_start(args, format);
+        len += vsnprintf(info_buf + len, 4096 - len, format, args);
+        va_end(args);
+        getInfoMsg() = info_buf;
+    }
+    static void clearInfo() {
+        getInfoMsg().clear();
+    }
+
+    static void failHandler() {
+        if (!getInfoMsg().empty()) {
+            std::cout << "        info: " << getInfoMsg() << std::endl;
+        }
+    }
+
+    static void usage(int argc, char** argv) {
         printf("\n");
         printf("Usage: %s [-f <keyword>] [-r <parameter>] [-p]\n", argv[0]);
         printf("\n");
@@ -404,9 +437,14 @@ private:
         printf("        Run TestRange-based tests using given parameter value.\n");
         printf("    -p, --preserve\n");
         printf("        Do not clean up test files.\n");
+        printf("    --abort-on-failure\n");
+        printf("        Immediately abort the test if failure happens.\n");
+        printf("    --suppress-msg\n");
+        printf("        Suppress test messages.\n");
         printf("\n");
     }
 
+private:
     struct TimeInfo {
         TimeInfo(std::tm* src)
             : year(src->tm_year + 1900)
@@ -424,33 +462,25 @@ private:
     };
 
 public:
-    TestSuite()
+    TestSuite(int argc = 0, char **argv = nullptr)
         : cntPass(0)
         , cntFail(0)
         , useGivenRange(false)
         , preserveTestFiles(false)
         , forceAbortOnFailure(false)
-        , givenRange(0)
-        , startTimeGlobal(std::chrono::system_clock::now()) {}
-
-    TestSuite(int argc, char **argv)
-        : cntPass(0)
-        , cntFail(0)
-        , useGivenRange(false)
-        , preserveTestFiles(false)
-        , forceAbortOnFailure(false)
+        , suppressMsg(false)
         , givenRange(0)
         , startTimeGlobal(std::chrono::system_clock::now())
     {
         for (int ii=1; ii<argc; ++ii) {
-            // Filter
+            // Filter.
             if ( ii < argc-1 &&
                  (!strcmp(argv[ii], "-f") ||
                   !strcmp(argv[ii], "--filter")) ) {
                 filter = argv[++ii];
             }
 
-            // Range
+            // Range.
             if ( ii < argc-1 &&
                  (!strcmp(argv[ii], "-r") ||
                   !strcmp(argv[ii], "--range")) ) {
@@ -458,15 +488,20 @@ public:
                 useGivenRange = true;
             }
 
-            // Do not clean up test files after test
+            // Do not clean up test files after test.
             if ( !strcmp(argv[ii], "-p") ||
                  !strcmp(argv[ii], "--preserve") ) {
                 preserveTestFiles = true;
             }
 
-            // Force abort on failure
+            // Force abort on failure.
             if ( !strcmp(argv[ii], "--abort-on-failure") ) {
                 forceAbortOnFailure = true;
+            }
+
+            // Suppress test messages.
+            if ( !strcmp(argv[ii], "--suppress-msg") ) {
+                suppressMsg = true;
             }
 
             // Help
@@ -492,6 +527,7 @@ public:
                cntPass+cntFail, time_str.c_str());
     }
 
+    // === Helper functions ====================================
     static std::string getTestFileName(const std::string& prefix) {
         auto now = std::chrono::system_clock::now();
         std::time_t raw_time = std::chrono::system_clock::to_time_t(now);
@@ -509,12 +545,19 @@ public:
         return ret;
     }
 
+    static int mkdir(const std::string& path) {
+        struct stat st;
+        if (stat(path.c_str(), &st) != 0) {
+            return ::mkdir(path.c_str(), 0755);
+        }
+        return 0;
+    }
+
     enum TestPosition {
         BEGINNING_OF_TEST   = 0,
         MIDDLE_OF_TEST      = 1,
         END_OF_TEST         = 2,
     };
-
     static void clearTestFile( const std::string& prefix,
                                TestPosition test_pos = MIDDLE_OF_TEST ) {
         TestSuite*& cur_test = TestSuite::getCurTest();
@@ -529,17 +572,47 @@ public:
     }
 
     static void setResultMessage(const std::string& msg) {
-        std::string& dst = TestSuite::getResMsg();
-        dst = msg;
+        TestSuite::getResMsg() = msg;
     }
 
     static void appendResultMessage(const std::string& msg) {
-        std::string& dst = TestSuite::getResMsg();
-        dst += msg;
+        TestSuite::getResMsg() += msg;
+    }
+
+    static size_t _msg(const char* format, ...) {
+        size_t cur_len = 0;
+        TestSuite* cur_test = TestSuite::getCurTest();
+        if ( cur_test &&
+             cur_test->options.printTestMessage &&
+             !cur_test->suppressMsg ) {
+            va_list args;
+            va_start(args, format);
+            cur_len += vprintf(format, args);
+            va_end(args);
+        }
+        return cur_len;
+    }
+
+    static void sleep_us(size_t us, const std::string& msg = std::string()) {
+        if (!msg.empty()) TestSuite::_msg("%s (%zu us)\n", msg.c_str(), us);
+        std::this_thread::sleep_for(std::chrono::microseconds(us));
+    }
+    static void sleep_ms(size_t ms, const std::string& msg = std::string()) {
+        if (!msg.empty()) TestSuite::_msg("%s (%zu ms)\n", msg.c_str(), ms);
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+    static void sleep_sec(size_t sec, const std::string& msg = std::string()) {
+        if (!msg.empty()) TestSuite::_msg("%s (%zu s)\n", msg.c_str(), sec);
+        std::this_thread::sleep_for(std::chrono::seconds(sec));
+    }
+
+    static std::string lzStr(size_t digit, uint64_t num) {
+        std::stringstream ss;
+        ss << std::setw(digit) << std::setfill('0') << std::to_string(num);
+        return ss.str();
     }
 
     // === Timer things ====================================
-
     class Timer {
     public:
         Timer() : duration_ms(0) {
@@ -571,41 +644,42 @@ public:
         size_t duration_ms;
     };
 
-    static size_t _msg(const char* format, ...) {
-        size_t cur_len = 0;
-        TestSuite* cur_test = TestSuite::getCurTest();
-        if ( cur_test &&
-             cur_test->options.printTestMessage ) {
-            va_list args;
-            va_start(args, format);
-            cur_len += vprintf(format, args);
-            va_end(args);
+    // === Workload generator things ====================================
+    class WorkloadGenerator {
+    public:
+        WorkloadGenerator(double ops_per_sec = 0.0, uint64_t max_ops_per_batch = 0)
+            : opsPerSec(ops_per_sec)
+            , maxOpsPerBatch(max_ops_per_batch)
+            , numOpsDone(0) {
+            reset();
         }
-        return cur_len;
-    }
+        void reset() {
+            start = std::chrono::system_clock::now();
+            numOpsDone = 0;
+        }
+        size_t getNumOpsToDo() {
+            if (opsPerSec <= 0) return 0;
 
-    static void sleep_us(size_t us, const std::string& msg = std::string()) {
-        if (!msg.empty()) TestSuite::_msg("%s (%zu us)\n", msg.c_str(), us);
-        std::this_thread::sleep_for(std::chrono::microseconds(us));
-    }
-    static void sleep_ms(size_t ms, const std::string& msg = std::string()) {
-        if (!msg.empty()) TestSuite::_msg("%s (%zu ms)\n", msg.c_str(), ms);
-        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-    }
-    static void sleep_sec(size_t sec, const std::string& msg = std::string()) {
-        if (!msg.empty()) TestSuite::_msg("%s (%zu s)\n", msg.c_str(), sec);
-        std::this_thread::sleep_for(std::chrono::seconds(sec));
-    }
+            auto cur = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed = cur - start;
 
-    static std::string lzStr(size_t digit, uint64_t num) {
-        std::stringstream ss;
-        ss << std::setw(digit) << std::setfill('0') << std::to_string(num);
-        return ss.str();
-    }
-
+            double exp = opsPerSec * elapsed.count();
+            if (numOpsDone < exp) {
+                return std::min(maxOpsPerBatch, (uint64_t)exp - numOpsDone);
+            }
+            return 0;
+        }
+        void addNumOpsDone(size_t num) {
+            numOpsDone += num;
+        }
+    private:
+        std::chrono::time_point<std::chrono::system_clock> start;
+        double opsPerSec;
+        uint64_t maxOpsPerBatch;
+        uint64_t numOpsDone;
+    };
 
     // === Progress things ==================================
-
     class Progress {
     public:
         Progress(uint64_t _num,
@@ -707,10 +781,9 @@ public:
         if (!matchFilter(test_name)) return;
 
         readyTest(test_name);
-        std::string& res_msg = TestSuite::getResMsg();
-        res_msg = "";
-        TestSuite*& cur_test = TestSuite::getCurTest();
-        cur_test = this;
+        TestSuite::getResMsg() = "";
+        TestSuite::getInfoMsg() = "";
+        TestSuite::getCurTest() = this;
         int ret = func();
         reportTestResult(test_name, ret);
     }
@@ -739,10 +812,9 @@ public:
             actual_test_name += " (" + ss.str() + ")";
             readyTest(actual_test_name);
 
-            std::string& res_msg = TestSuite::getResMsg();
-            res_msg = "";
-            TestSuite*& cur_test = TestSuite::getCurTest();
-            cur_test = this;
+            TestSuite::getResMsg() = "";
+            TestSuite::getInfoMsg() = "";
+            TestSuite::getCurTest() = this;
 
             int ret = func(cur_arg);
             reportTestResult(actual_test_name, ret);
@@ -759,10 +831,9 @@ public:
         if (!matchFilter(test_name)) return;
 
         readyTest(test_name);
-        std::string& res_msg = TestSuite::getResMsg();
-        res_msg = "";
-        TestSuite*& cur_test = TestSuite::getCurTest();
-        cur_test = this;
+        TestSuite::getResMsg() = "";
+        TestSuite::getInfoMsg() = "";
+        TestSuite::getCurTest() = this;
         int ret = func(arg1, args...);
         reportTestResult(test_name, ret);
     }
@@ -788,10 +859,9 @@ private:
                    TestArgsBase* args )
     {
         readyTest(test_name);
-        std::string& res_msg = TestSuite::getResMsg();
-        res_msg = "";
-        TestSuite*& cur_test = TestSuite::getCurTest();
-        cur_test = this;
+        TestSuite::getResMsg() = "";
+        TestSuite::getInfoMsg() = "";
+        TestSuite::getCurTest() = this;
         int ret = func(args);
         reportTestResult(test_name, ret);
     }
@@ -811,16 +881,18 @@ private:
 
     void readyTest(const std::string& test_name) {
         printf("[ " "...." " ] %s\n", test_name.c_str());
-        if (options.printTestMessage) {
+        if (options.printTestMessage && !suppressMsg) {
             printf(_CL_D_GRAY("   === TEST MESSAGE (BEGIN) ===\n"));
         }
         fflush(stdout);
 
+        getTestName() = test_name;
         startTimeLocal = std::chrono::system_clock::now();
     }
 
     void reportTestResult(const std::string& test_name,
-                          int result) {
+                          int result)
+    {
         std::chrono::time_point<std::chrono::system_clock> cur_time =
                 std::chrono::system_clock::now();;
         std::chrono::duration<double> elapsed = cur_time - startTimeLocal;
@@ -838,7 +910,7 @@ private:
             printf("[ " _CL_RED("FAIL") " ] %s\n", msg_buf);
             cntFail++;
         } else {
-            if (options.printTestMessage) {
+            if (options.printTestMessage && !suppressMsg) {
                 printf(_CL_D_GRAY("   === TEST MESSAGE (END) ===\n"));
             } else {
                 // Move a line up.
@@ -850,6 +922,13 @@ private:
             printf("[ " _CL_GREEN("PASS") " ] %s\n", msg_buf);
             cntPass++;
         }
+
+        if ( result != 0 &&
+             (options.abortOnFailure || forceAbortOnFailure) ) {
+            bool abort_on_failure = false;
+            assert(abort_on_failure);
+        }
+        getTestName().clear();
     }
 
     std::string usToString(uint64_t us) {
@@ -879,6 +958,7 @@ private:
     bool useGivenRange;
     bool preserveTestFiles;
     bool forceAbortOnFailure;
+    bool suppressMsg;
     int64_t givenRange;
     // Start time of each test.
     std::chrono::time_point<std::chrono::system_clock> startTimeLocal;
