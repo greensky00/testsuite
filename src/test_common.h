@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.38
+ * Version: 0.1.40
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -387,6 +387,10 @@ struct TestOptions {
 class TestSuite {
     friend TestArgsBase;
 private:
+    static std::mutex& getResMsgLock() {
+        static std::mutex res_msg_lock;
+        return res_msg_lock;
+    }
     static std::string& getResMsg() {
         static std::string res_msg;
         return res_msg;
@@ -442,6 +446,47 @@ public:
         printf("    --suppress-msg\n");
         printf("        Suppress test messages.\n");
         printf("\n");
+    }
+
+    static std::string usToString(uint64_t us) {
+        std::stringstream ss;
+        if (us < 1000) {
+            // us
+            ss << std::fixed << std::setprecision(0) << us << " us";
+        } else if (us < 1000000) {
+            // ms
+            double tmp = static_cast<double>(us / 1000.0);
+            ss << std::fixed << std::setprecision(1) << tmp << " ms";
+        } else if (us < (uint64_t)600 * 1000000) {
+            // second: 1 s -- 600 s (10 mins)
+            double tmp = static_cast<double>(us / 1000000.0);
+            ss << std::fixed << std::setprecision(1) << tmp << " s";
+        } else {
+            // minute
+            double tmp = static_cast<double>(us / 60.0 / 1000000.0);
+            ss << std::fixed << std::setprecision(0) << tmp << " m";
+        }
+        return ss.str();
+    }
+
+    static std::string countToString(uint64_t count) {
+        std::stringstream ss;
+        if (count < 1000) {
+            ss << count;
+        } else if (count < 1000000) {
+            // K
+            double tmp = static_cast<double>(count / 1000.0);
+            ss << std::fixed << std::setprecision(1) << tmp << "K";
+        } else if (count < (uint64_t)1000000000) {
+            // M
+            double tmp = static_cast<double>(count / 1000000.0);
+            ss << std::fixed << std::setprecision(1) << tmp << "M";
+        } else {
+            // B
+            double tmp = static_cast<double>(count / 1000000000.0);
+            ss << std::fixed << std::setprecision(1) << tmp << "B";
+        }
+        return ss.str();
     }
 
 private:
@@ -576,6 +621,7 @@ public:
     }
 
     static void appendResultMessage(const std::string& msg) {
+        std::lock_guard<std::mutex> l(TestSuite::getResMsgLock());
         TestSuite::getResMsg() += msg;
     }
 
@@ -723,6 +769,55 @@ public:
         std::string unit;
     };
 
+    // === Displayer things ==================================
+    class Displayer {
+    public:
+        Displayer(size_t num_raws, size_t num_cols)
+            : numRaws(num_raws)
+            , numCols(num_cols)
+            , colWidth(num_cols, 20)
+            , context(num_raws, std::vector<std::string>(num_cols)) {}
+        void init() {
+            for (size_t ii=0; ii<numRaws; ++ii) printf("\n");
+        }
+        void setWidth(std::vector<size_t>& src) {
+            size_t num_src = src.size();
+            if (!num_src) return;
+
+            for (size_t ii=0; ii<num_src; ++ii) {
+                colWidth[ii] = src[ii];
+            }
+            for (size_t ii=num_src; ii<numCols; ++ii) {
+                colWidth[ii] = src[num_src-1];
+            }
+        }
+        void set(size_t raw_idx, size_t col_idx, const char* format, ...) {
+            if (raw_idx >= numRaws || col_idx >= numCols) return;
+
+            thread_local char info_buf[32];
+            size_t len = 0;
+            va_list args;
+            va_start(args, format);
+            len += vsnprintf(info_buf + len, 20 - len, format, args);
+            va_end(args);
+            context[raw_idx][col_idx] = info_buf;
+        }
+        void print() {
+            printf("\033[%zuA", numRaws);
+            for (size_t ii=0; ii<numRaws; ++ii) {
+                std::stringstream ss;
+                for (size_t jj=0; jj<numCols; ++jj) {
+                    ss << std::setw(colWidth[jj]) << context[ii][jj];
+                }
+                printf("\r%s\n", ss.str().c_str());
+            }
+        }
+    private:
+        size_t numRaws;
+        size_t numCols;
+        std::vector<size_t> colWidth;
+        std::vector< std::vector< std::string > > context;
+    };
 
     // === Thread things ====================================
     struct ThreadArgs { /* Opaque. */ };
@@ -929,27 +1024,6 @@ private:
             assert(abort_on_failure);
         }
         getTestName().clear();
-    }
-
-    std::string usToString(uint64_t us) {
-        std::stringstream ss;
-        if (us < 1000) {
-            // us
-            ss << std::fixed << std::setprecision(0) << us << " us";
-        } else if (us < 1000000) {
-            // ms
-            double tmp = static_cast<double>(us / 1000.0);
-            ss << std::fixed << std::setprecision(1) << tmp << " ms";
-        } else if (us < (uint64_t)600 * 1000000) {
-            // second: 1 s -- 600 s (10 mins)
-            double tmp = static_cast<double>(us / 1000000.0);
-            ss << std::fixed << std::setprecision(1) << tmp << " s";
-        } else {
-            // minute
-            double tmp = static_cast<double>(us / 60.0 / 1000000.0);
-            ss << std::fixed << std::setprecision(0) << tmp << " m";
-        }
-        return ss.str();
     }
 
     size_t cntPass;
