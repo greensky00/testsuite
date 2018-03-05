@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.41
+ * Version: 0.1.42
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -379,10 +379,11 @@ struct TestOptions {
     TestOptions()
         : printTestMessage(false)
         , abortOnFailure(false)
+        , preserveTestFiles(false)
         {}
-
     bool printTestMessage;
     bool abortOnFailure;
+    bool preserveTestFiles;
 };
 
 class TestSuite {
@@ -607,7 +608,9 @@ public:
     static void clearTestFile( const std::string& prefix,
                                TestPosition test_pos = MIDDLE_OF_TEST ) {
         TestSuite*& cur_test = TestSuite::getCurTest();
-        if (test_pos == END_OF_TEST && cur_test->preserveTestFiles) return;
+        if ( test_pos == END_OF_TEST &&
+             ( cur_test->preserveTestFiles ||
+               cur_test->options.preserveTestFiles ) ) return;
 
         int r;
         std::string command = "rm -rf ";
@@ -652,11 +655,16 @@ public:
         if (!msg.empty()) TestSuite::_msg("%s (%zu s)\n", msg.c_str(), sec);
         std::this_thread::sleep_for(std::chrono::seconds(sec));
     }
-
     static std::string lzStr(size_t digit, uint64_t num) {
         std::stringstream ss;
         ss << std::setw(digit) << std::setfill('0') << std::to_string(num);
         return ss.str();
+    }
+    static double calcThroughput(uint64_t ops, uint64_t elapsed_us) {
+        return ops * 1000000.0 / elapsed_us;
+    }
+    static std::string throughputStr(uint64_t ops, uint64_t elapsed_us) {
+        return countToString(ops * 1000000.0 / elapsed_us);
     }
 
     // === Timer things ====================================
