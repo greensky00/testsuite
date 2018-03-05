@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.42
+ * Version: 0.1.43
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -1215,4 +1215,15 @@ void TestArgsBase::testAllInternal(size_t depth) {
 #define PARAM_BASE TestArgsBase* TEST_args_base__
 
 #define TEST_SUITE_AUTO_PREFIX __func__
+
+#define TEST_SUITE_PREPARE_PATH(path)                               \
+    const std::string _ts_auto_prefiix_ = TEST_SUITE_AUTO_PREFIX;   \
+    TestSuite::clearTestFile(_ts_auto_prefiix_);                    \
+    path = TestSuite::getTestFileName(_ts_auto_prefiix_);
+
+#define TEST_SUITE_CLEANUP_PATH()                       \
+    TestSuite::clearTestFile( _ts_auto_prefiix_,        \
+                              TestSuite::END_OF_TEST );
+
+
 
