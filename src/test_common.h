@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.43
+ * Version: 0.1.44
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -1030,6 +1030,7 @@ private:
         if ( result != 0 &&
              (options.abortOnFailure || forceAbortOnFailure) ) {
             bool abort_on_failure = false;
+            (void)abort_on_failure;
             assert(abort_on_failure);
         }
         getTestName().clear();
