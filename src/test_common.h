@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.44
+ * Version: 0.1.45
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -598,6 +598,12 @@ public:
             return ::mkdir(path.c_str(), 0755);
         }
         return 0;
+    }
+    static int copyfile(const std::string& src,
+                        const std::string& dst) {
+        std::string cmd = "cp -R " + src + " " + dst;
+        int rc = ::system(cmd.c_str());
+        return rc;
     }
 
     enum TestPosition {
