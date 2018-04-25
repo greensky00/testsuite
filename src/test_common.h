@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.45
+ * Version: 0.1.47
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -413,6 +413,15 @@ public:
     static std::string getCurrentTestName() {
         return getTestName();
     }
+    static bool isMsgAllowed() {
+        TestSuite* cur_test = TestSuite::getCurTest();
+        if ( cur_test &&
+             (cur_test->options.printTestMessage || cur_test->displayMsg) &&
+             !cur_test->suppressMsg ) {
+            return true;
+        }
+        return false;
+    }
 
     static void setInfo(const char* format, ...) {
         thread_local char info_buf[4096];
@@ -551,6 +560,11 @@ public:
                 suppressMsg = true;
             }
 
+            // Display test messages.
+            if ( !strcmp(argv[ii], "--display-msg") && !suppressMsg ) {
+                displayMsg = true;
+            }
+
             // Help
             if ( !strcmp(argv[ii], "-h") ||
                  !strcmp(argv[ii], "--help") ) {
@@ -639,7 +653,7 @@ public:
         size_t cur_len = 0;
         TestSuite* cur_test = TestSuite::getCurTest();
         if ( cur_test &&
-             cur_test->options.printTestMessage &&
+             (cur_test->options.printTestMessage || cur_test->displayMsg) &&
              !cur_test->suppressMsg ) {
             va_list args;
             va_start(args, format);
@@ -648,6 +662,25 @@ public:
         }
         return cur_len;
     }
+
+    class Msg : public std::ostream {
+    public:
+        Msg() : std::ostream(&buf), buf(std::cout) {}
+    private:
+        class IntBuf : public std::stringbuf {
+        public:
+            IntBuf(std::ostream& o_stream) : oStream(o_stream) {}
+            virtual int sync() {
+                if (!TestSuite::isMsgAllowed()) return 0;
+                oStream << str();
+                oStream.flush();
+                return 0;
+            }
+        private:
+            std::ostream& oStream;
+        };
+        IntBuf buf;
+    };
 
     static void sleep_us(size_t us, const std::string& msg = std::string()) {
         if (!msg.empty()) TestSuite::_msg("%s (%zu us)\n", msg.c_str(), us);
@@ -991,7 +1024,8 @@ private:
 
     void readyTest(const std::string& test_name) {
         printf("[ " "...." " ] %s\n", test_name.c_str());
-        if (options.printTestMessage && !suppressMsg) {
+        if ( (options.printTestMessage || displayMsg) &&
+             !suppressMsg ) {
             printf(_CL_D_GRAY("   === TEST MESSAGE (BEGIN) ===\n"));
         }
         fflush(stdout);
@@ -1020,7 +1054,8 @@ private:
             printf("[ " _CL_RED("FAIL") " ] %s\n", msg_buf);
             cntFail++;
         } else {
-            if (options.printTestMessage && !suppressMsg) {
+            if ( (options.printTestMessage || displayMsg) &&
+                 !suppressMsg ) {
                 printf(_CL_D_GRAY("   === TEST MESSAGE (END) ===\n"));
             } else {
                 // Move a line up.
@@ -1035,9 +1070,7 @@ private:
 
         if ( result != 0 &&
              (options.abortOnFailure || forceAbortOnFailure) ) {
-            bool abort_on_failure = false;
-            (void)abort_on_failure;
-            assert(abort_on_failure);
+            abort();
         }
         getTestName().clear();
     }
@@ -1049,6 +1082,7 @@ private:
     bool preserveTestFiles;
     bool forceAbortOnFailure;
     bool suppressMsg;
+    bool displayMsg;
     int64_t givenRange;
     // Start time of each test.
     std::chrono::time_point<std::chrono::system_clock> startTimeLocal;
@@ -1231,6 +1265,4 @@ void TestArgsBase::testAllInternal(size_t depth) {
 #define TEST_SUITE_CLEANUP_PATH()                       \
     TestSuite::clearTestFile( _ts_auto_prefiix_,        \
                               TestSuite::END_OF_TEST );
-
-
 
