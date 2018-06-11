@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.47
+ * Version: 0.1.52
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -43,6 +43,7 @@
 #include <string>
 #include <thread>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include <stdio.h>
@@ -51,6 +52,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#ifndef _CLM_DEFINED
+#define _CLM_DEFINED (1)
 
 #ifdef TESTSUITE_NO_COLOR
     #define _CLM_D_GRAY     ""
@@ -66,29 +70,42 @@
     #define _CLM_B_MAGENTA  ""
     #define _CLM_CYAN       ""
     #define _CLM_END        ""
+
+    #define _CLM_WHITE_FG_RED_BG    ""
 #else
-    #define _CLM_D_GRAY    "\033[1;30m"
-    #define _CLM_GREEN     "\033[32m"
-    #define _CLM_B_GREEN   "\033[1;32m"
-    #define _CLM_RED       "\033[31m"
-    #define _CLM_B_RED     "\033[1;31m"
-    #define _CLM_BROWN     "\033[33m"
-    #define _CLM_B_BROWN   "\033[1;33m"
-    #define _CLM_BLUE      "\033[34m"
-    #define _CLM_B_BLUE    "\033[1;34m"
-    #define _CLM_MAGENTA   "\033[35m"
-    #define _CLM_B_MAGENTA "\033[1;35m"
-    #define _CLM_CYAN      "\033[36m"
-    #define _CLM_END       "\033[0m"
+    #define _CLM_D_GRAY     "\033[1;30m"
+    #define _CLM_GREEN      "\033[32m"
+    #define _CLM_B_GREEN    "\033[1;32m"
+    #define _CLM_RED        "\033[31m"
+    #define _CLM_B_RED      "\033[1;31m"
+    #define _CLM_BROWN      "\033[33m"
+    #define _CLM_B_BROWN    "\033[1;33m"
+    #define _CLM_BLUE       "\033[34m"
+    #define _CLM_B_BLUE     "\033[1;34m"
+    #define _CLM_MAGENTA    "\033[35m"
+    #define _CLM_B_MAGENTA  "\033[1;35m"
+    #define _CLM_CYAN       "\033[36m"
+    #define _CLM_B_GREY     "\033[1;37m"
+    #define _CLM_END        "\033[0m"
+
+    #define _CLM_WHITE_FG_RED_BG    "\033[37;41m"
 #endif
 
-#define _CL_D_GRAY(str)    _CLM_D_GRAY  str _CLM_END
-#define _CL_GREEN(str)     _CLM_GREEN   str _CLM_END
-#define _CL_RED(str)       _CLM_RED     str _CLM_END
-#define _CL_MAGENTA(str)   _CLM_MAGENTA str _CLM_END
-#define _CL_BROWN(str)     _CLM_BROWN   str _CLM_END
-#define _CL_B_MAGENTA(str) _CLM_MAGENTA str _CLM_END
-#define _CL_CYAN(str)      _CLM_CYAN    str _CLM_END
+#define _CL_D_GRAY(str)     _CLM_D_GRAY     str _CLM_END
+#define _CL_GREEN(str)      _CLM_GREEN      str _CLM_END
+#define _CL_RED(str)        _CLM_RED        str _CLM_END
+#define _CL_B_RED(str)      _CLM_B_RED      str _CLM_END
+#define _CL_MAGENTA(str)    _CLM_MAGENTA    str _CLM_END
+#define _CL_BROWN(str)      _CLM_BROWN      str _CLM_END
+#define _CL_B_BROWN(str)    _CLM_B_BROWN    str _CLM_END
+#define _CL_B_BLUE(str)     _CLM_B_BLUE     str _CLM_END
+#define _CL_B_MAGENTA(str)  _CLM_B_MAGENTA  str _CLM_END
+#define _CL_CYAN(str)       _CLM_CYAN       str _CLM_END
+#define _CL_B_GRAY(str)     _CLM_B_GREY     str _CLM_END
+
+#define _CL_WHITE_FG_RED_BG(str)    _CLM_WHITE_FG_RED_BG    str _CLM_END
+
+#endif
 
 #define __COUT_STACK_INFO__                                                     \
        std::endl                                                                \
@@ -314,14 +331,12 @@ enum class StepType {
 template<typename T>
 class TestRange {
 public:
-    TestRange() {
-        type = RangeType::NONE;
-    }
+    TestRange() : type(RangeType::NONE), begin(), end(), step() {}
 
     // Constructor for given values
     TestRange(const std::vector<T>& _array)
         : type(RangeType::ARRAY), array(_array)
-    { }
+        , begin(), end(), step() {}
 
     // Constructor for regular steps
     TestRange(T _begin, T _end, T _step, StepType _type)
@@ -340,7 +355,10 @@ public:
         } else if (type == RangeType::LINEAR) {
             return begin + step * idx;
         } else if (type == RangeType::EXPONENTIAL) {
-            return begin * std::pow(step, idx);
+            ssize_t _begin = begin;
+            ssize_t _step = step;
+            ssize_t _ret = _begin * std::pow(_step, idx);
+            return (T)(_ret);
         }
 
         return begin;
@@ -352,7 +370,7 @@ public:
         } else if (type == RangeType::LINEAR) {
             return ((end - begin) / step) + 1;
         } else if (type == RangeType::EXPONENTIAL) {
-            size_t coe = end / begin;
+            ssize_t coe = ((ssize_t)end) / ((ssize_t)begin);
             double steps_double = (double)std::log(coe) / std::log(step);
             return steps_double + 1;
         }
@@ -525,6 +543,7 @@ public:
         , preserveTestFiles(false)
         , forceAbortOnFailure(false)
         , suppressMsg(false)
+        , displayMsg(false)
         , givenRange(0)
         , startTimeGlobal(std::chrono::system_clock::now())
     {
@@ -826,7 +845,7 @@ public:
             , colWidth(num_cols, 20)
             , context(num_raws, std::vector<std::string>(num_cols)) {}
         void init() {
-            for (size_t ii=0; ii<numRaws; ++ii) printf("\n");
+            for (size_t ii=0; ii<numRaws; ++ii) _msg("\n");
         }
         void setWidth(std::vector<size_t>& src) {
             size_t num_src = src.size();
@@ -851,13 +870,13 @@ public:
             context[raw_idx][col_idx] = info_buf;
         }
         void print() {
-            printf("\033[%zuA", numRaws);
+            _msg("\033[%zuA", numRaws);
             for (size_t ii=0; ii<numRaws; ++ii) {
                 std::stringstream ss;
                 for (size_t jj=0; jj<numCols; ++jj) {
                     ss << std::setw(colWidth[jj]) << context[ii][jj];
                 }
-                printf("\r%s\n", ss.str().c_str());
+                _msg("\r%s\n", ss.str().c_str());
             }
         }
     private:
