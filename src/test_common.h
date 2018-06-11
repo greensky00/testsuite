@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.52
+ * Version: 0.1.54
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -145,6 +145,8 @@
         return -1;                                                      \
     }
 
+#define CHK_TRUE(value) CHK_OK(value)
+
 // value == false
 #define CHK_NOT(value)                                                  \
     if (value) {                                                        \
@@ -156,6 +158,8 @@
         TestSuite::failHandler();                                       \
         return -1;                                                      \
     }
+
+#define CHK_FALSE(value) CHK_NOT(value)
 
 // value == NULL
 #define CHK_NULL(value)                                                 \
@@ -638,6 +642,10 @@ public:
         int rc = ::system(cmd.c_str());
         return rc;
     }
+    static int remove(const std::string& path) {
+        int rc = ::remove(path.c_str());
+        return rc;
+    }
 
     enum TestPosition {
         BEGINNING_OF_TEST   = 0,
@@ -778,7 +786,10 @@ public:
 
             double exp = opsPerSec * elapsed.count();
             if (numOpsDone < exp) {
-                return std::min(maxOpsPerBatch, (uint64_t)exp - numOpsDone);
+                if (maxOpsPerBatch) {
+                    return std::min(maxOpsPerBatch, (uint64_t)exp - numOpsDone);
+                }
+                return (uint64_t)exp - numOpsDone;
             }
             return 0;
         }
