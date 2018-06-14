@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.54
+ * Version: 0.1.55
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -804,6 +804,7 @@ public:
     };
 
     // === Progress things ==================================
+    // Progress that knows the maximum value.
     class Progress {
     public:
         Progress(uint64_t _num,
@@ -841,6 +842,44 @@ public:
     private:
         uint64_t curValue;
         uint64_t num;
+        Timer timer;
+        uint64_t lastPrintTimeUs;
+        std::string comment;
+        std::string unit;
+    };
+
+    // Progress that doesn't know the maximum value.
+    class UnknownProgress {
+    public:
+        UnknownProgress(const std::string& _comment = std::string(),
+                        const std::string& _unit = std::string())
+            : curValue(0)
+            , timer(0)
+            , lastPrintTimeUs(timer.getTimeUs())
+            , comment(_comment)
+            , unit(_unit) {}
+        void update(uint64_t cur) {
+            curValue = cur;
+            uint64_t curTimeUs = timer.getTimeUs();
+            if ( curTimeUs - lastPrintTimeUs > 50000 ||
+                 cur == 0 ) {
+                // Print every 0.05 sec (20 Hz).
+                lastPrintTimeUs = curTimeUs;
+                std::string _comment =
+                    (comment.empty()) ? "" : comment + ": ";
+                std::string _unit =
+                    (unit.empty()) ? "" : unit + " ";
+
+                _msg("\r%s%ld %s", _comment.c_str(), curValue, _unit.c_str());
+                fflush(stdout);
+            }
+        }
+        void done() {
+            _msg("\n");
+            fflush(stdout);
+        }
+    private:
+        uint64_t curValue;
         Timer timer;
         uint64_t lastPrintTimeUs;
         std::string comment;
