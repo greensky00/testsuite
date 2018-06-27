@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.55
+ * Version: 0.1.57
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -127,6 +127,22 @@
         << __COUT_STACK_INFO__                                          \
         << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
         << "    expected: " _CLM_B_GREEN << _ev << _CLM_END "\n"        \
+        << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";          \
+        TestSuite::failHandler();                                       \
+        return -1;                                                      \
+    }                                                                   \
+}
+
+// exp_value != value
+#define CHK_NEQ(exp_value, value)                                       \
+{                                                                       \
+    auto _ev = (exp_value);                                             \
+    decltype(_ev) _v = (decltype(_ev))(value);                          \
+    if (_ev == _v) {                                                    \
+        std::cout                                                       \
+        << __COUT_STACK_INFO__                                          \
+        << "    value of: " _CLM_B_BLUE #value _CLM_END "\n"            \
+        << "    expected: not " _CLM_B_GREEN << _ev << _CLM_END "\n"    \
         << "      actual: " _CLM_B_RED << _v << _CLM_END "\n";          \
         TestSuite::failHandler();                                       \
         return -1;                                                      \
@@ -951,31 +967,38 @@ private:
 
 public:
     struct ThreadHolder {
+        ThreadHolder() : tid(nullptr), handler(nullptr) {}
         ThreadHolder(std::thread* _tid, ThreadExitHandler _handler)
             : tid(_tid), handler(_handler) {}
         ThreadHolder(ThreadArgs* u_args,
                      ThreadFunc t_func,
                      ThreadExitHandler t_handler)
-            : handler(t_handler)
-        {
+            : tid(nullptr), handler(nullptr)
+        { spawn(u_args, t_func, t_handler); }
+
+        ~ThreadHolder() { join(true); }
+
+        void spawn(ThreadArgs* u_args,
+                   ThreadFunc t_func,
+                   ThreadExitHandler t_handler) {
+            if (tid) return;
+            handler = t_handler;
             args.userArgs = u_args;
             args.func = t_func;
             tid = new std::thread(spawnThread, &args);
         }
-        ~ThreadHolder() {
+
+        void join(bool force = false) {
             if (!tid) return;
             if (tid->joinable()) {
-                handler(args.userArgs);
+                if (force) {
+                    // Force kill.
+                    handler(args.userArgs);
+                }
                 tid->join();
             }
             delete tid;
             tid = nullptr;
-        }
-        void join() {
-            if (!tid) return;
-            if (tid->joinable()) {
-                tid->join();
-            }
         }
         int getResult() const { return args.rc; }
         std::thread* tid;
