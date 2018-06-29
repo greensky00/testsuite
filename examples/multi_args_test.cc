@@ -1,7 +1,5 @@
 #include "test_common.h"
 
-#include <stdio.h>
-
 // Dual-parameters example: {bool, int}.
 
 DEFINE_PARAMS_2(my_dual_args,

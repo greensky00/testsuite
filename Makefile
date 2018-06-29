@@ -1,4 +1,4 @@
-LDFLAGS =
+LDFLAGS = -pthread
 
 CXXFLAGS = \
 	-g -D_GNU_SOURCE -std=c++11 \
@@ -22,6 +22,12 @@ CLI_ARGS_TEST = \
 MESSAGE_TEST = \
 	examples/message_test.o \
 
+THREAD_TEST = \
+	examples/thread_test.o \
+
+PROGRESS_TEST = \
+	examples/progress_test.o \
+
 VERIFY_MULTI_INCLUDE = \
 	examples/verify_multi_include.o \
 	examples/dummy.o \
@@ -32,6 +38,8 @@ PROGRAMS = \
 	examples/multi_args_test \
 	examples/cli_args_test \
 	examples/message_test \
+	examples/thread_test \
+	examples/progress_test \
 	examples/verify_multi_include \
 
 all: $(PROGRAMS)
@@ -51,6 +59,12 @@ examples/cli_args_test: $(CLI_ARGS_TEST)
 examples/message_test: $(MESSAGE_TEST)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
+examples/thread_test: $(THREAD_TEST)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
+examples/progress_test: $(PROGRESS_TEST)
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
 examples/verify_multi_include: $(VERIFY_MULTI_INCLUDE)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
@@ -60,6 +74,7 @@ test:
 	examples/multi_args_test
 	examples/cli_args_test
 	examples/message_test
+	examples/thread_test
 
 clean:
 	rm -rf $(PROGRAMS) ./*.o ./*.so ./*/*.o ./*/*.so

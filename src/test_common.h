@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.57
+ * Version: 0.1.58
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -494,6 +494,8 @@ public:
         printf("        Immediately abort the test if failure happens.\n");
         printf("    --suppress-msg\n");
         printf("        Suppress test messages.\n");
+        printf("    --display-msg\n");
+        printf("        Display test messages.\n");
         printf("\n");
     }
 
@@ -764,6 +766,11 @@ public:
             if (duration_ms < elapsed.count() * 1000) return true;
             return false;
         }
+        uint64_t getTimeMs() {
+            auto cur = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed = cur - start;
+            return (uint64_t)(elapsed.count() * 1000);
+        }
         uint64_t getTimeUs() {
             auto cur = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed = cur - start;
@@ -772,7 +779,11 @@ public:
         void reset() {
             start = std::chrono::system_clock::now();
         }
-        void reset(size_t _duration_ms) {
+        void resetSec(size_t _duration_sec) {
+            duration_ms = _duration_sec * 1000;
+            reset();
+        }
+        void resetMs(size_t _duration_ms) {
             duration_ms = _duration_ms;
             reset();
         }

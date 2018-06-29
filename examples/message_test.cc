@@ -1,16 +1,14 @@
 #include "test_common.h"
 
-#include <stdio.h>
-
 int message_test_example()
 {
-    printf("hello world!\n");
+    TestSuite::_msg("hello world!\n");
 
     return 0;
 }
 
-int main() {
-    TestSuite test;
+int main(int argc, char** argv) {
+    TestSuite test(argc, argv);
 
     test.options.printTestMessage = true;
     test.doTest("message test example", message_test_example);

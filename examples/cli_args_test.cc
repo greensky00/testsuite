@@ -2,8 +2,6 @@
 
 #include <vector>
 
-#include <stdio.h>
-
 struct TestData {
     enum class Type{
         ARITHMETIC,
