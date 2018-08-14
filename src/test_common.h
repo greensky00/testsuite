@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.58
+ * Version: 0.1.62
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -109,6 +109,8 @@
 
 #define __COUT_STACK_INFO__                                                     \
        std::endl                                                                \
+    << "        time: " << _CLM_D_GRAY <<                                       \
+       TestSuite::getTimeString() << _CLM_END << "\n"                           \
     << "      thread: " << _CLM_BROWN                                           \
     << std::hex << std::setw(4) << std::setfill('0') <<                         \
        (std::hash<std::thread::id>{}( std::this_thread::get_id() ) & 0xffff)    \
@@ -540,6 +542,26 @@ public:
         return ss.str();
     }
 
+    static std::string sizeToString(uint64_t size) {
+        std::stringstream ss;
+        if (size < 1024) {
+            ss << size << " B";
+        } else if (size < 1024*1024) {
+            // K
+            double tmp = static_cast<double>(size / 1024.0);
+            ss << std::fixed << std::setprecision(1) << tmp << " KiB";
+        } else if (size < (uint64_t)1024*1024*1024) {
+            // M
+            double tmp = static_cast<double>(size / 1024.0 / 1024.0);
+            ss << std::fixed << std::setprecision(1) << tmp << " MiB";
+        } else {
+            // B
+            double tmp = static_cast<double>(size / 1024.0 / 1024.0 / 1024.0);
+            ss << std::fixed << std::setprecision(1) << tmp << " GiB";
+        }
+        return ss.str();
+    }
+
 private:
     struct TimeInfo {
         TimeInfo(std::tm* src)
@@ -548,13 +570,33 @@ private:
             , day(src->tm_mday)
             , hour(src->tm_hour)
             , min(src->tm_min)
-            , sec(src->tm_sec) {}
+            , sec(src->tm_sec)
+            , msec(0)
+            , usec(0) {}
+        TimeInfo(std::chrono::system_clock::time_point now) {
+            std::time_t raw_time = std::chrono::system_clock::to_time_t(now);
+            std::tm* lt_tm = std::localtime(&raw_time);
+            year = lt_tm->tm_year + 1900;
+            month = lt_tm->tm_mon + 1;
+            day = lt_tm->tm_mday;
+            hour = lt_tm->tm_hour;
+            min = lt_tm->tm_min;
+            sec = lt_tm->tm_sec;
+
+            size_t us_epoch = std::chrono::duration_cast
+                              < std::chrono::microseconds >
+                              ( now.time_since_epoch() ).count();
+            msec = (us_epoch / 1000) % 1000;
+            usec = us_epoch % 1000;
+        }
         int year;
         int month;
         int day;
         int hour;
         int min;
         int sec;
+        int msec;
+        int usec;
     };
 
 public:
@@ -631,10 +673,7 @@ public:
 
     // === Helper functions ====================================
     static std::string getTestFileName(const std::string& prefix) {
-        auto now = std::chrono::system_clock::now();
-        std::time_t raw_time = std::chrono::system_clock::to_time_t(now);
-        std::tm* lt_tm = std::localtime(&raw_time);
-        TimeInfo lt(lt_tm);
+        TimeInfo lt(std::chrono::system_clock::now());
         (void)lt;
 
         char time_char[64];
@@ -645,6 +684,28 @@ public:
         ret += "_";
         ret += time_char;
         return ret;
+    }
+
+    static std::string getTimeString() {
+        TimeInfo lt(std::chrono::system_clock::now());
+        char time_char[64];
+        sprintf(time_char, "%04d-%02d-%02d %02d:%02d:%02d.%03d%03d",
+                lt.year, lt.month, lt.day, lt.hour, lt.min, lt.sec, lt.msec, lt.usec);
+        return time_char;
+    }
+    static std::string getTimeStringShort() {
+        TimeInfo lt(std::chrono::system_clock::now());
+        char time_char[64];
+        sprintf(time_char, "%02d:%02d.%03d %03d",
+                lt.min, lt.sec, lt.msec, lt.usec);
+        return time_char;
+    }
+    static std::string getTimeStringPlain() {
+        TimeInfo lt(std::chrono::system_clock::now());
+        char time_char[64];
+        sprintf(time_char, "%02d%02d_%02d%02d%02d",
+                lt.month, lt.day, lt.hour, lt.min, lt.sec);
+        return time_char;
     }
 
     static int mkdir(const std::string& path) {
@@ -707,6 +768,21 @@ public:
         }
         return cur_len;
     }
+    static size_t _msgt(const char* format, ...) {
+        size_t cur_len = 0;
+        TestSuite* cur_test = TestSuite::getCurTest();
+        if ( cur_test &&
+             (cur_test->options.printTestMessage || cur_test->displayMsg) &&
+             !cur_test->suppressMsg ) {
+            std::cout << _CLM_D_GRAY
+                      << getTimeStringShort() << _CLM_END << "] ";
+            va_list args;
+            va_start(args, format);
+            cur_len += vprintf(format, args);
+            va_end(args);
+        }
+        return cur_len;
+    }
 
     class Msg : public std::ostream {
     public:
@@ -750,6 +826,9 @@ public:
     static std::string throughputStr(uint64_t ops, uint64_t elapsed_us) {
         return countToString(ops * 1000000.0 / elapsed_us);
     }
+    static std::string sizeThroughputStr(uint64_t size_byte, uint64_t elapsed_us) {
+        return sizeToString(size_byte * 1000000.0 / elapsed_us);
+    }
 
     // === Timer things ====================================
     class Timer {
@@ -760,6 +839,7 @@ public:
         Timer(size_t _duration_ms) : duration_ms(_duration_ms) {
             reset();
         }
+        inline bool timeout() { return timeover(); }
         bool timeover() {
             auto cur = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed = cur - start;
@@ -961,6 +1041,33 @@ public:
         size_t numCols;
         std::vector<size_t> colWidth;
         std::vector< std::vector< std::string > > context;
+    };
+
+    // === Gc things ====================================
+    template<typename T, typename T2 = T>
+    class GcVar {
+    public:
+        GcVar(T& _src, T2 _to)
+            : src(_src), to(_to) {}
+        ~GcVar() {
+            // GC by value.
+            src = to;
+        }
+    private:
+        T& src;
+        T2 to;
+    };
+
+    class GcFunc {
+    public:
+        GcFunc(std::function<void()> _func)
+            : func(_func) {}
+        ~GcFunc() {
+            // GC by function.
+            func();
+        }
+    private:
+        std::function<void()> func;
     };
 
     // === Thread things ====================================
