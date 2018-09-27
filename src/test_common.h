@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.63
+ * Version: 0.1.64
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -784,23 +784,27 @@ public:
         return cur_len;
     }
 
-    class Msg : public std::ostream {
+    class Msg {
     public:
-        Msg() : std::ostream(&buf), buf(std::cout) {}
-    private:
-        class IntBuf : public std::stringbuf {
-        public:
-            IntBuf(std::ostream& o_stream) : oStream(o_stream) {}
-            virtual int sync() {
-                if (!TestSuite::isMsgAllowed()) return 0;
-                oStream << str();
-                oStream.flush();
-                return 0;
+        Msg() {}
+
+        template<typename T>
+        inline Msg& operator<<(const T& data) {
+            if (TestSuite::isMsgAllowed()) {
+                std::cout << data;
             }
-        private:
-            std::ostream& oStream;
-        };
-        IntBuf buf;
+            return *this;
+        }
+
+        using MyCout = std::basic_ostream< char, std::char_traits<char> >;
+        typedef MyCout& (*EndlFunc)(MyCout&);
+
+        Msg& operator<<(EndlFunc func) {
+            if (TestSuite::isMsgAllowed()) {
+                func(std::cout);
+            }
+            return *this;
+        }
     };
 
     static void sleep_us(size_t us, const std::string& msg = std::string()) {
