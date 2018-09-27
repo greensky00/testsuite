@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.62
+ * Version: 0.1.63
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -845,6 +845,11 @@ public:
             std::chrono::duration<double> elapsed = cur - start;
             if (duration_ms < elapsed.count() * 1000) return true;
             return false;
+        }
+        uint64_t getTimeSec() {
+            auto cur = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsed = cur - start;
+            return (uint64_t)(elapsed.count());
         }
         uint64_t getTimeMs() {
             auto cur = std::chrono::system_clock::now();
