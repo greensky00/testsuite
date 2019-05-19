@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.64
+ * Version: 0.1.66
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -450,6 +450,10 @@ private:
         return cur_test;
     }
 public:
+    static bool& globalMsgFlag() {
+        static bool global_msg_flag = false;
+        return global_msg_flag;
+    }
     static std::string getCurrentTestName() {
         return getTestName();
     }
@@ -460,6 +464,7 @@ public:
              !cur_test->suppressMsg ) {
             return true;
         }
+        if (globalMsgFlag()) return true;
         return false;
     }
 
@@ -725,6 +730,11 @@ public:
         int rc = ::remove(path.c_str());
         return rc;
     }
+    static bool exist(const std::string& path) {
+        struct stat st;
+        int result = stat(path.c_str(), &st);
+        return (result == 0);
+    }
 
     enum TestPosition {
         BEGINNING_OF_TEST   = 0,
@@ -758,9 +768,10 @@ public:
     static size_t _msg(const char* format, ...) {
         size_t cur_len = 0;
         TestSuite* cur_test = TestSuite::getCurTest();
-        if ( cur_test &&
-             (cur_test->options.printTestMessage || cur_test->displayMsg) &&
-             !cur_test->suppressMsg ) {
+        if ( ( cur_test &&
+               (cur_test->options.printTestMessage || cur_test->displayMsg) &&
+               !cur_test->suppressMsg ) ||
+             globalMsgFlag() ) {
             va_list args;
             va_start(args, format);
             cur_len += vprintf(format, args);
@@ -771,9 +782,10 @@ public:
     static size_t _msgt(const char* format, ...) {
         size_t cur_len = 0;
         TestSuite* cur_test = TestSuite::getCurTest();
-        if ( cur_test &&
-             (cur_test->options.printTestMessage || cur_test->displayMsg) &&
-             !cur_test->suppressMsg ) {
+        if ( ( cur_test &&
+               (cur_test->options.printTestMessage || cur_test->displayMsg) &&
+               !cur_test->suppressMsg ) ||
+             globalMsgFlag() ) {
             std::cout << _CLM_D_GRAY
                       << getTimeStringShort() << _CLM_END << "] ";
             va_list args;
