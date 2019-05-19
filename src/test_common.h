@@ -5,7 +5,7 @@
  * https://github.com/greensky00
  *
  * Test Suite
- * Version: 0.1.66
+ * Version: 0.1.67
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -50,8 +51,16 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+
+#if defined(__linux__) || defined(__APPLE__)
+    #include <sys/stat.h>
+    #include <sys/types.h>
+#elif defined(WIN32) || defined(_WIN32)
+    #define NOMINMAX
+    #include <direct.h>
+    #include <Windows.h>
+    typedef SSIZE_T ssize_t;
+#endif
 
 #ifndef _CLM_DEFINED
 #define _CLM_DEFINED (1)
@@ -373,13 +382,13 @@ public:
 
     T getEntry(size_t idx) {
         if (type == RangeType::ARRAY) {
-            return array[idx];
+            return (T)(array[idx]);
         } else if (type == RangeType::LINEAR) {
-            return begin + step * idx;
+            return (T)(begin + step * idx);
         } else if (type == RangeType::EXPONENTIAL) {
             ssize_t _begin = begin;
             ssize_t _step = step;
-            ssize_t _ret = _begin * std::pow(_step, idx);
+            ssize_t _ret = (ssize_t)( _begin * std::pow(_step, idx) );
             return (T)(_ret);
         }
 
@@ -394,7 +403,7 @@ public:
         } else if (type == RangeType::EXPONENTIAL) {
             ssize_t coe = ((ssize_t)end) / ((ssize_t)begin);
             double steps_double = (double)std::log(coe) / std::log(step);
-            return steps_double + 1;
+            return (size_t)(steps_double + 1);
         }
 
         return 0;
@@ -666,7 +675,8 @@ public:
         std::chrono::time_point<std::chrono::system_clock> cur_time =
                 std::chrono::system_clock::now();;
         std::chrono::duration<double> elapsed = cur_time - startTimeGlobal;
-        std::string time_str = usToString(elapsed.count() * 1000000);
+        std::string time_str = usToString
+                               ( (uint64_t)(elapsed.count() * 1000000) );
 
         printf(_CL_GREEN("%zu") " tests passed", cntPass);
         if (cntFail) {
@@ -714,26 +724,49 @@ public:
     }
 
     static int mkdir(const std::string& path) {
+#if defined(__linux__) || defined(__APPLE__)
         struct stat st;
         if (stat(path.c_str(), &st) != 0) {
             return ::mkdir(path.c_str(), 0755);
         }
+
+#elif defined(WIN32) || defined(_WIN32)
+        if (GetFileAttributes(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            return _mkdir(path.c_str());
+        }
+#endif
         return 0;
     }
     static int copyfile(const std::string& src,
                         const std::string& dst) {
+#if defined(__linux__) || defined(__APPLE__)
         std::string cmd = "cp -R " + src + " " + dst;
         int rc = ::system(cmd.c_str());
         return rc;
+
+#elif defined(WIN32) || defined(_WIN32)
+        // TODO: `xcopy` only copies folders, not files.
+        std::string cmd = "xcopy /e /i /h " + src + " " + dst + " > NUL";
+        int rc = ::system(cmd.c_str());
+        return rc;
+#endif
     }
     static int remove(const std::string& path) {
         int rc = ::remove(path.c_str());
         return rc;
     }
     static bool exist(const std::string& path) {
+#if defined(__linux__) || defined(__APPLE__)
         struct stat st;
         int result = stat(path.c_str(), &st);
         return (result == 0);
+
+#elif defined(WIN32) || defined(_WIN32)
+        if (GetFileAttributes(path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            return true;
+        }
+        return false;
+#endif
     }
 
     enum TestPosition {
@@ -749,11 +782,41 @@ public:
                cur_test->options.preserveTestFiles ) ) return;
 
         int r;
+#if defined(__linux__) || defined(__APPLE__)
         std::string command = "rm -rf ";
         command += prefix;
         command += "*";
         r = system(command.c_str());
         (void)r;
+
+#elif defined(WIN32) || defined(_WIN32)
+        std::string command = "del /s /f /q ";
+        command += prefix;
+        command += "* > NUL";
+        r = system(command.c_str());
+        (void)r;
+
+        // Windows `del` operation cannot delete folders.
+        // Just in case if there are any folders.
+        WIN32_FIND_DATA filedata;
+        HANDLE hfind;
+        std::string query_str = prefix + "*";
+        hfind = FindFirstFile(query_str.c_str(), &filedata);
+        while (hfind != INVALID_HANDLE_VALUE) {
+            std::string f_name(filedata.cFileName);
+            size_t f_name_pos = f_name.find(prefix);
+            if (f_name_pos != std::string::npos) {
+                command = "rmdir /s /q " + f_name + " > NUL";
+                r = system(command.c_str());
+                (void)r;
+            }
+
+            if (!FindNextFile(hfind, &filedata)) {
+                FindClose(hfind);
+                hfind = INVALID_HANDLE_VALUE;
+            }
+        }
+#endif
     }
 
     static void setResultMessage(const std::string& msg) {
@@ -840,10 +903,10 @@ public:
         return ops * 1000000.0 / elapsed_us;
     }
     static std::string throughputStr(uint64_t ops, uint64_t elapsed_us) {
-        return countToString(ops * 1000000.0 / elapsed_us);
+        return countToString(ops * 1000000 / elapsed_us);
     }
     static std::string sizeThroughputStr(uint64_t size_byte, uint64_t elapsed_us) {
-        return sizeToString(size_byte * 1000000.0 / elapsed_us);
+        return sizeToString(size_byte * 1000000 / elapsed_us);
     }
 
     // === Timer things ====================================
@@ -1271,7 +1334,8 @@ private:
         std::chrono::time_point<std::chrono::system_clock> cur_time =
                 std::chrono::system_clock::now();;
         std::chrono::duration<double> elapsed = cur_time - startTimeLocal;
-        std::string time_str = usToString(elapsed.count() * 1000000);
+        std::string time_str = usToString
+                               ( (uint64_t)(elapsed.count() * 1000000) );
 
         char msg_buf[1024];
         std::string res_msg = TestSuite::getResMsg();
