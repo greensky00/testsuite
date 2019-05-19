@@ -16,7 +16,7 @@ int example_thread(TestSuite::ThreadArgs* _args) {
     timer.resetSec(args->durationSec);
     do {
         TestSuite::sleep_ms(1);
-    } while ( !timer.timeover() && !args->stopSignal );
+    } while ( !(timer.timeover() || args->stopSignal) );
     return 0;
 }
 
